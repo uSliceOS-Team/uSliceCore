@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Host-side test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run tests/run_tests.sh
+        run: bash tests/run_tests.sh
+
+  static-analysis:
+    name: Static analysis (cppcheck + clang-tidy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install cppcheck and clang-tidy
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cppcheck clang-tidy
+
+      # tools/cppcheck.sh already sets --error-exitcode=1, so this fails
+      # the job on any finding, not just on a crash.
+      - name: cppcheck (tasks/, time/, uSliceOS.h)
+        run: bash tools/cppcheck.sh
+
+      # Scope matches .clang-tidy's own HeaderFilterRegex: the library
+      # core (tasks/, time/), not tests/ or examples/, which intentionally
+      # use host-side patterns the core's checks don't apply to.
+      - name: clang-tidy (tasks/, time/)
+        run: |
+          clang-tidy tasks/osTaskManager.cpp time/osTickISR.cpp \
+            -- -std=c++17 -I.
+
+  build-example:
+    name: Build & run host-side example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build examples/logic_controlled_tasks
+        run: |
+          g++ -std=c++17 -Wall -Wextra -I. \
+            examples/logic_controlled_tasks/LedBlinker.cpp \
+            examples/logic_controlled_tasks/Motor.cpp \
+            examples/logic_controlled_tasks/SensorMonitor.cpp \
+            examples/logic_controlled_tasks/Logic.cpp \
+            examples/logic_controlled_tasks/main.cpp \
+            tasks/osTaskManager.cpp \
+            time/osTickISR.cpp \
+            -o example
+
+      - name: Run example
+        run: ./example

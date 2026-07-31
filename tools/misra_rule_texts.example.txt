@@ -1,0 +1,12 @@
+# Format example for a local MISRA rule-texts file.
+#
+# This is NOT MISRA content -- it's a placeholder showing the shape of the
+# file cppcheck's MISRA addon expects. Copy this to misra_rule_texts.txt
+# (already gitignored) and replace the example lines below with entries
+# built from your own purchased copy of the MISRA standard. Check your
+# installed cppcheck version's docs for the exact expected format/flag, as
+# this has changed across cppcheck releases.
+#
+# Example line shape (rule number, then its text):
+1.1 <replace with the rule's title/text from your own copy of the standard>
+2.3 <replace with the rule's title/text from your own copy of the standard>

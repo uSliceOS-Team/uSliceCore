@@ -1,0 +1,14 @@
+# Build artifacts from tests/run_tests.sh (binaries have no extension on
+# Linux/macOS -- see tests/README.md).
+tests/.build/
+
+# Build artifact from examples/logic_controlled_tasks (see its README).
+examples/logic_controlled_tasks/example
+
+# Generic fallback for the above on other platforms.
+*.exe
+*.bin
+
+# Local MISRA rule texts built from a purchased copy of the standard.
+# Never commit this -- see docs/MISRA_COMPLIANCE.md.
+tools/misra_rule_texts.txt

@@ -1,0 +1,31 @@
+# clang-tidy profile for µSliceOS.
+#
+# Scope: tasks/, time/, uSliceOS.h -- the library core, not tests/ or
+# examples/ (those intentionally use host-side patterns, like the test
+# framework's assertions, that don't reflect target-firmware constraints).
+#
+# Rationale:
+# - Base is "-*" (nothing on by default); only the groups below are enabled.
+#   modernize-* is deliberately left out: most of its checks push toward STL
+#   containers/std::optional/exception-based error handling, which this
+#   library avoids by design (bare-metal, no heap, no exceptions -- see
+#   Safety & Process Notes in README.md). Enabling it would flag the
+#   project's actual constraints as things to "fix."
+# - cppcoreguidelines-avoid-magic-numbers is left off: tick counts and
+#   pin/register-adjacent constants are inherent to this domain and a blanket
+#   ban produces more named single-use constants than clarity.
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '(tasks|time)/.*'
+FormatStyle: none

@@ -11,7 +11,7 @@
  * lifecycle -- there is no restriction against a task starting,
  * stopping, or inspecting itself or any other task by name.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

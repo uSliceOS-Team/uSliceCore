@@ -7,7 +7,7 @@
  * STOP_SELF() in osTaskMacros.hpp; these macros are for reaching
  * *another* task.)
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

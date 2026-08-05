@@ -1,7 +1,7 @@
 /**
  * @file osTime.hpp
  * @brief Lightweight software timer engine for cooperative multitasking in embedded systems.
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once
@@ -114,4 +114,3 @@ namespace Time {
     };
 } // namespace Time
 } // namespace OS
-

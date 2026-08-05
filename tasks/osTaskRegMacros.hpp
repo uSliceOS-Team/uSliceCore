@@ -3,7 +3,7 @@
  * @brief Task registration macros (ADD_TASK, ADD_TASK_AND_START,
  * ADD_TASK_NO_CTX, ADD_TASK_NO_CTX_AND_START, TASK_INSTANCE).
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

@@ -1,7 +1,7 @@
 /**
  * @file osTimeCore.hpp
  * @brief Lightweight software timer core for cooperative multitasking in embedded systems.
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

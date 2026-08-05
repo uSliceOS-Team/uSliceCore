@@ -30,7 +30,7 @@ jobs:
 
       # tools/cppcheck.sh already sets --error-exitcode=1, so this fails
       # the job on any finding, not just on a crash.
-      - name: cppcheck (tasks/, time/, uSliceOS.h)
+      - name: cppcheck (tasks/, time/, uSliceCore.h)
         run: bash tools/cppcheck.sh
 
       # Scope matches .clang-tidy's own HeaderFilterRegex: the library

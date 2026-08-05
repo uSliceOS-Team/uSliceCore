@@ -3,7 +3,7 @@
  * @brief Task definition and flow-control macros: CASES, CTX, TASK_ENTRY,
  * TASK_LOOP, TASK_STOP, SWITCH/CASE/GOTO_CASE/RAISE_FAULT/SWITCH_END/STOP_SELF.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

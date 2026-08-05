@@ -1,5 +1,5 @@
 /**
- * @file uSliceOS.h
+ * @file uSliceCore.h
  * @brief Umbrella header: both C-callable entry points in one include.
  *
  * osTaskManager() (tasks/osTaskManager.h) and osTickISR()
@@ -13,7 +13,7 @@
  * time/osTickISR.h directly, each file pulling in only the one
  * declaration it actually implements.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

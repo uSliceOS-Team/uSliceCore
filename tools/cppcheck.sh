@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Static analysis for µSliceOS core (tasks/, time/, uSliceOS.h).
+# Static analysis for µSliceCore core (tasks/, time/, uSliceCore.h).
 #
 # Usage:
 #   tools/cppcheck.sh            # standard checks
@@ -15,7 +15,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCES="tasks time uSliceOS.h"
+SOURCES="tasks time uSliceCore.h"
 COMMON_FLAGS=(
   --enable=warning,style,performance,portability
   --inconclusive

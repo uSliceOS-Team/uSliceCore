@@ -19,7 +19,7 @@ once instead; see the root `README.md` → Integration.
 
 ## Build
 
-From the repository root (the folder containing `uSliceOS.h`):
+From the repository root (the folder containing `uSliceCore.h`):
 
 ```sh
 g++ -std=c++17 -I. \

@@ -8,7 +8,7 @@
  * in time/osTickISR.h right next to it, so a C ISR file can drive the
  * tick without including any C++ headers.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #include "osTickISR.h"

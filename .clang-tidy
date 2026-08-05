@@ -1,6 +1,6 @@
-# clang-tidy profile for µSliceOS.
+# clang-tidy profile for µSliceCore.
 #
-# Scope: tasks/, time/, uSliceOS.h -- the library core, not tests/ or
+# Scope: tasks/, time/, uSliceCore.h -- the library core, not tests/ or
 # examples/ (those intentionally use host-side patterns, like the test
 # framework's assertions, that don't reflect target-firmware constraints).
 #

@@ -26,7 +26,7 @@ determination (not the rule's text) into this file.
 
 ## How to populate this
 
-1. Run `cppcheck --addon=misra` (see `tools/cppcheck.sh`) against `tasks/`, `time/`, and `uSliceOS.h`.
+1. Run `cppcheck --addon=misra` (see `tools/cppcheck.sh`) against `tasks/`, `time/`, and `uSliceCore.h`.
 2. If you have a purchased MISRA standard, cppcheck's MISRA addon can load a
    local rule-texts file to get descriptive output; see
    `tools/misra_rule_texts.example.txt` for the expected format. **Do not

@@ -2,7 +2,7 @@
  * @file main.cpp
  * @brief Entry point for the example -- a HOST-SIDE SIMULATION.
  *
- * uSliceOS is platform-independent and has no build system of its own;
+ * uSliceCore is platform-independent and has no build system of its own;
  * on real hardware you would:
  *   1. Wire a 1 kHz hardware timer interrupt to osTickISR() (or
  *      OS::Time::Core::onTickISR() from C++), and
@@ -23,7 +23,7 @@
 #include <cstdio>
 
 int main(void) {
-    printf("=== uSliceOS example: logic-controlled tasks (host simulation) ===\n\n");
+    printf("=== uSliceCore example: logic-controlled tasks (host simulation) ===\n\n");
 
     const int PASSES = 12;
     for (int pass = 0; pass < PASSES; pass++) {

@@ -1,10 +1,10 @@
-# µSliceOS
+# µSliceCore
 
 ![Version](https://img.shields.io/badge/version-0.1-lightgrey)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![Language](https://img.shields.io/badge/language-C%2B%2B-orange)
 ![Status](https://img.shields.io/badge/status-active%20development-yellowgreen)
-[![CI](https://github.com/uSliceOS-Team/uSliceOS-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/uSliceOS-Team/uSliceOS-lab/actions/workflows/ci.yml)
+[![CI](https://github.com/uSliceOS-Team/uSliceCore/actions/workflows/ci.yml/badge.svg)](https://github.com/uSliceOS-Team/uSliceCore/actions/workflows/ci.yml)
 
 A lightweight cooperative real-time operating system for microcontrollers based on the superloop architecture and finite state machines. Designed for systems where predictability is not a feature. It is a requirement.
 
@@ -32,7 +32,7 @@ A lightweight cooperative real-time operating system for microcontrollers based 
 
 ## The Core Idea
 
-µSliceOS replaces preemptive scheduling with a deterministic supercycle: an infinite loop that executes one FSM step per registered task per pass. There is no context switching, no stack per task, no scheduler that can interrupt execution at an arbitrary point.
+µSliceCore replaces preemptive scheduling with a deterministic supercycle: an infinite loop that executes one FSM step per registered task per pass. There is no context switching, no stack per task, no scheduler that can interrupt execution at an arbitrary point.
 
 Each task is a finite state machine. Each state does one short, non-blocking operation and returns. The supercycle runs thousands of times per second. The worst-case response time is the sum of all step durations: known, measurable, and bounded.
 
@@ -45,16 +45,16 @@ This is the right architecture when you need to reason formally about timing, wh
 **1. Include the headers**
 
 ```cpp
-#include "uSliceOS.h"
+#include "uSliceCore.h"
 #include "tasks/osTaskCore.hpp"
 #include "tasks/osTaskMacros.hpp"
 #include "tasks/osTaskRegMacros.hpp"
 #include "time/osTime.hpp"
 ```
 
-`uSliceOS.h`, at the repository root, is a thin umbrella that pulls in `osTaskManager()` (declared in `tasks/osTaskManager.h`) and `osTickISR()` (declared in `time/osTickISR.h`): the two calls exposed with C linkage. It's the only header a plain C file (e.g. a vendor-generated `main.c`) needs, and it's meant for user code only: internal library files never include it, each `.cpp` includes only the one declaration header for what it implements. Everything else -- `CASES`, `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`, `ADD_TASK`, and the rest of the macro API -- is C++-only and lives under `tasks/` and `time/`.
+`uSliceCore.h`, at the repository root, is a thin umbrella that pulls in `osTaskManager()` (declared in `tasks/osTaskManager.h`) and `osTickISR()` (declared in `time/osTickISR.h`): the two calls exposed with C linkage. It's the only header a plain C file (e.g. a vendor-generated `main.c`) needs, and it's meant for user code only: internal library files never include it, each `.cpp` includes only the one declaration header for what it implements. Everything else -- `CASES`, `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`, `ADD_TASK`, and the rest of the macro API -- is C++-only and lives under `tasks/` and `time/`.
 
-The repository is one folder containing `uSliceOS.h`, `tasks/`, and `time/`. Add that one containing folder as your include directory: from your own code, reach into a subfolder with `tasks/...` or `time/...` (as the snippets on this page do), the same way `uSliceOS.h` itself reaches `tasks/osTaskManager.h` and `time/osTickISR.h`. Inside the library, files address same-folder neighbors by bare quoted name instead: `tasks/osTaskMacros.hpp` includes `"osTaskCore.hpp"`, not `"tasks/osTaskCore.hpp"`, which resolves from the including file's own directory and needs no include-path setup to work.
+The repository is one folder containing `uSliceCore.h`, `tasks/`, and `time/`. Add that one containing folder as your include directory: from your own code, reach into a subfolder with `tasks/...` or `time/...` (as the snippets on this page do), the same way `uSliceCore.h` itself reaches `tasks/osTaskManager.h` and `time/osTickISR.h`. Inside the library, files address same-folder neighbors by bare quoted name instead: `tasks/osTaskMacros.hpp` includes `"osTaskCore.hpp"`, not `"tasks/osTaskCore.hpp"`, which resolves from the including file's own directory and needs no include-path setup to work.
 
 **2. Define your task's states**
 
@@ -131,7 +131,7 @@ void YourHardwareTimerISR(void) {
 
 ```c
 /* From a plain C file (e.g. a vendor-generated SysTick_Handler.c),
-   including only uSliceOS.h: */
+   including only uSliceCore.h: */
 void YourHardwareTimerISR(void) {
     osTickISR();
 }
@@ -139,7 +139,7 @@ void YourHardwareTimerISR(void) {
 
 **9. Start the scheduler**
 
-`osTaskManager()`, declared in `uSliceOS.h`, runs the supercycle forever. It never returns. `main` can be C or C++; only `uSliceOS.h` needs including here.
+`osTaskManager()`, declared in `uSliceCore.h`, runs the supercycle forever. It never returns. `main` can be C or C++; only `uSliceCore.h` needs including here.
 
 ```c
 int main(void) {
@@ -156,7 +156,7 @@ A complete, runnable multi-task example (self-stopping tasks, a task configured 
 
 ## Design Properties
 
-µSliceOS is a cooperative, single-stack scheduler. Tasks are never interrupted mid-step.
+µSliceCore is a cooperative, single-stack scheduler. Tasks are never interrupted mid-step.
 
 **Consequences of this model:**
 
@@ -517,10 +517,10 @@ CASE(CHECK):
 
 This repository is platform-independent by design: no vendor headers, no inline assembly, nothing tied to a specific MCU. Wiring it to real hardware means writing two small pieces of glue yourself; neither ships here.
 
-1. **The millisecond tick.** Call `OS::Time::Core::onTickISR()` (C++) or `osTickISR()` (plain C, declared in `time/osTickISR.h`, also reachable via the root `uSliceOS.h` umbrella) from a hardware timer interrupt firing at exactly 1 kHz (an ordinary timer, `SysTick`, whatever your platform calls it). See [Timers](#timers) for why the rate has to be exact, not approximate.
-2. **The build itself.** The repository is one folder containing `uSliceOS.h`, `tasks/`, and `time/`. Add that single containing folder as your include directory (CMake `target_include_directories`, PlatformIO `lib/`, STM32CubeIDE/MounRiver include paths); this is what lets *your* code reach in with `tasks/osTaskCore.hpp`, `time/osTimeCore.hpp`, and so on. Inside the library itself, files address same-folder neighbors by bare quoted name (`osTaskCore.hpp`, not `tasks/osTaskCore.hpp`), which resolves from the including file's own directory regardless of your include path; only `uSliceOS.h` at the root reaches into `tasks/` and `time/` by folder-qualified name, since those aren't its own neighbors.
-3. **Language standard.** The C++ side requires C++17 or later. Only the C-linkage declarations (`tasks/osTaskManager.h`, `time/osTickISR.h`, and the `uSliceOS.h` umbrella over both) need to be reachable from C; everything else under `tasks/` and `time/` is compiled as C++ regardless of what language the rest of your project uses.
-4. **Mixed C/C++ projects.** `uSliceOS.h`, `tasks/osTaskManager.h`, and `time/osTickISR.h` all guard their declarations with `#ifdef __cplusplus extern "C" { ... }`, so any of them is safe to include from both a `.c` and a `.cpp` file. Task logic (`.cpp` files using `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`/`CASES`/`ADD_TASK`) and a plain-C `main.c` calling only `osTaskManager()`/`osTickISR()` can coexist in the same build; the compiler still needs a C++ toolchain to build the `.cpp` files and link the result.
+1. **The millisecond tick.** Call `OS::Time::Core::onTickISR()` (C++) or `osTickISR()` (plain C, declared in `time/osTickISR.h`, also reachable via the root `uSliceCore.h` umbrella) from a hardware timer interrupt firing at exactly 1 kHz (an ordinary timer, `SysTick`, whatever your platform calls it). See [Timers](#timers) for why the rate has to be exact, not approximate.
+2. **The build itself.** The repository is one folder containing `uSliceCore.h`, `tasks/`, and `time/`. Add that single containing folder as your include directory (CMake `target_include_directories`, PlatformIO `lib/`, STM32CubeIDE/MounRiver include paths); this is what lets *your* code reach in with `tasks/osTaskCore.hpp`, `time/osTimeCore.hpp`, and so on. Inside the library itself, files address same-folder neighbors by bare quoted name (`osTaskCore.hpp`, not `tasks/osTaskCore.hpp`), which resolves from the including file's own directory regardless of your include path; only `uSliceCore.h` at the root reaches into `tasks/` and `time/` by folder-qualified name, since those aren't its own neighbors.
+3. **Language standard.** The C++ side requires C++17 or later. Only the C-linkage declarations (`tasks/osTaskManager.h`, `time/osTickISR.h`, and the `uSliceCore.h` umbrella over both) need to be reachable from C; everything else under `tasks/` and `time/` is compiled as C++ regardless of what language the rest of your project uses.
+4. **Mixed C/C++ projects.** `uSliceCore.h`, `tasks/osTaskManager.h`, and `time/osTickISR.h` all guard their declarations with `#ifdef __cplusplus extern "C" { ... }`, so any of them is safe to include from both a `.c` and a `.cpp` file. Task logic (`.cpp` files using `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`/`CASES`/`ADD_TASK`) and a plain-C `main.c` calling only `osTaskManager()`/`osTickISR()` can coexist in the same build; the compiler still needs a C++ toolchain to build the `.cpp` files and link the result.
 5. **The example.** [`examples/logic_controlled_tasks`](examples/logic_controlled_tasks) is a runnable, host-side (not on-target) demonstration of everything in [Task Lifecycle Control](#task-lifecycle-control); it's a good starting point to copy and modify.
 6. **Testing before hardware.** [`tests/`](tests) is a host-side test suite covering lifecycle timing, the fault flag, `TASK_INSTANCE`, `Timer`/`Clock`, and the `DECLARE_TASK`/`TASK_CONTEXT` cross-file pattern -- run `tests/run_tests.sh` on your PC before flashing a change to real hardware. See its own README for what's covered and why it's structured as several small binaries instead of one.
 
@@ -543,7 +543,7 @@ This repository is platform-independent by design: no vendor headers, no inline 
 
 ## Safety & Process Notes
 
-This section is for anyone evaluating µSliceOS for use in, or alongside,
+This section is for anyone evaluating µSliceCore for use in, or alongside,
 safety-critical or regulated firmware (e.g. medical devices under IEC 62304).
 Read this before assuming more than what's actually here.
 
@@ -589,7 +589,7 @@ honest starting point, not a checklist that's already been ticked off.
 | CH32 | Priority | WCH |
 | ESP32 | Not planned | Espressif |
 
-ESP32 is not planned: ESP-IDF is built on FreeRTOS as its execution model, and proper µSliceOS support would require a full alternative to ESP-IDF. That is outside the current scope of this project.
+ESP32 is not planned: ESP-IDF is built on FreeRTOS as its execution model, and proper µSliceCore support would require a full alternative to ESP-IDF. That is outside the current scope of this project.
 
 ---
 

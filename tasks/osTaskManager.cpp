@@ -6,7 +6,7 @@
  * every registered task in turn. Contains no platform-specific code:
  * no cycle counters, no vendor headers, nothing tied to a specific MCU.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #include "osTaskManager.h"

@@ -7,7 +7,7 @@
  * ISR file (e.g. a vendor-generated SysTick_Handler.c) can drive the
  * tick without including any C++ headers.
  *
- * @author uSliceOS Team
+ * @author uSliceCore Team
  */
 
 #pragma once

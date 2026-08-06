@@ -49,7 +49,7 @@ single binary.
   independent context storage while sharing one `Entry_`/`Loop_`/`Stop_`
   triple.
 - `test_timer.cpp` -- `OS::Time::Timer`'s fresh-instance trap
-  (`isExpired() == true` before the first `set()`), one-shot behavior,
+  (`isExpired() == true` before the first `set()`), latched-expiry behavior,
   and `OS::Time::Clock` elapsed-time tracking. Does not exercise the
   2^32 ms wraparound point; reaching it would need billions of ticks in
   one process, which isn't practical here.

@@ -29,9 +29,9 @@ int main() {
     CHECK(t.isExpired());   // 5th tick: deadline reached
   }
 
-  // One-shot: once isExpired() returns true, it keeps returning true on
-  // every later call, even with no further ticks, until set() is called
-  // again.
+  // Latched expiry: once isExpired() returns true, it keeps returning true
+  // on every later call, even with no further ticks, until set() establishes
+  // a new deadline.
   {
     OS::Time::Timer t;
     t.set(1);

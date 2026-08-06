@@ -44,10 +44,9 @@ namespace Time {
          * Uses unsigned arithmetic logic `(now - start) >= period` to strictly handle
          * counter wraparound.
          *
-         * @note One-shot, not a peek: once this returns true it sets period to 0,
+         * @note Latched expiry: once this returns true it sets period to 0,
          * so every subsequent call also returns true (see the constructor's
-         * warning) until set() is called again. Checking the same Timer from
-         * more than one place without an intervening set() will misbehave.
+         * warning) until set() establishes a new deadline.
          *
          * @return true if deadline is reached or passed, false otherwise.
          */

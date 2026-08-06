@@ -1,40 +1,69 @@
 # Test Traceability
 
-This is an informal requirement-to-test mapping for the host-side test suite.
-It exists to make two things checkable at a glance: which behaviors are
-actually pinned down by a test, and which test file to look at when one of
-them regresses.
+The README is the source of truth for supported public behavior. This file
+maps that behavior to host-side tests and records gaps in the current suite.
+Open defects and unsafe API limitations are tracked separately in
+[`docs/KNOWN_ISSUES.md`](../docs/KNOWN_ISSUES.md).
 
-**What this is not:** a device-level requirements/hazard traceability matrix
-as would be expected in an IEC 62304 Software Development Plan. There is no
-formal requirements document behind this table: the "Requirement" column is
-the observable behavior the library commits to in the README (mainly
-[Task Lifecycle Control](../README.md#task-lifecycle-control),
-[Safe Task Lifecycle](../README.md#safe-task-lifecycle), and
-[Timers](../README.md#timers)), written down here so it's checked, not just
-implied.
+A test does not turn incidental implementation behavior into a public promise.
+Tests that only characterize a known issue are explicitly marked diagnostic.
 
-| # | Requirement (informal) | Verified by | Notes |
+## Current test mapping
+
+| Supported behavior | README reference | Verified by | Status |
 |---|---|---|---|
-| 1 | An autostarted task's entry handler has run, and it is `RUNNING`, before the first `Loop()` pass | `test_lifecycle_autostart.cpp` | |
-| 2 | An autostarted task's loop count advances by exactly one per scheduler pass | `test_lifecycle_autostart.cpp` | |
-| 3 | A manually-started task does not run its entry handler or loop body before `START_TASK` is called | `test_lifecycle_manual_start.cpp` | |
-| 4 | After `START_TASK`, the task enters `Guard` (running, entry not yet run) before `Entry` runs on the next pass | `test_lifecycle_manual_start.cpp` | matches [Startup: two workflows](../README.md#startup-two-workflows) |
-| 5 | `STOP_SELF()` lets the current pass finish (loop count still reflects the pass that called it) before the task stops | `test_self_stop_and_cleanup.cpp` | |
-| 6 | A task's cleanup/stop handler runs exactly once, only after the task actually stops | `test_self_stop_and_cleanup.cpp` | |
-| 7 | `RAISE_FAULT()` sets the fault flag but does not stop the task or change control flow beyond exiting the current `SWITCH` | `test_fault_flag.cpp` (`naiveFaulter`) | matches [Known Limitations](../README.md#known-limitations) |
-| 8 | A task can be made to actually stop itself after a fault by explicit `CASE` design (`GOTO_CASE` + `STOP_SELF()`), which the library does not do automatically | `test_fault_flag.cpp` (`safeFaulter`) | this is the "Correct Pattern" companion to #7 |
-| 9 | `TASK_INSTANCE` produces independent context state per instance under a shared task definition | `test_task_instance.cpp` | |
-| 10 | A freshly constructed `Timer` reports `isExpired() == true` before `set()` is ever called | `test_timer.cpp` | matches [Known Limitations](../README.md#known-limitations) |
-| 11 | `Timer::isExpired()` is one-shot: stays `true` until the next `set()`, not a re-evaluated peek | `test_timer.cpp` | |
-| 12 | `Clock::getMs()` reports elapsed time correctly and resets on `restart()` | `test_timer.cpp` | |
-| 13 | `START_TASK`/`STOP_TASK` are silent no-ops when called outside the state they expect (e.g. starting an already-running task) | `test_start_stop_noop_windows.cpp` | matches [Macro Reference](../README.md#task-management) |
-| 14 | Loop count is preserved across a stop/restart cycle rather than reset | `test_start_stop_noop_windows.cpp` | |
-| 15 | A task declared in one translation unit (`DECLARE_TASK`/`TASK_CONTEXT`) is reachable and its context readable from another, without pulling in the defining file's context type | `test_cross_file_main.cpp` / `test_cross_file_task.cpp` | |
+| An autostart task runs `TASK_ENTRY` on its first turn and begins `TASK_LOOP` on its next turn. | [Startup: two workflows](../README.md#startup-two-workflows) | `test_lifecycle_autostart.cpp` | Release candidate |
+| A manual start follows `Stopped -> Guard -> Entry -> Loop`, with an inert Guard turn. | [Startup: two workflows](../README.md#startup-two-workflows) | `test_lifecycle_manual_start.cpp` | Release candidate |
+| A legal stop enters `Stop`; cleanup runs on the task's next scheduled turn, after which it is fully stopped. | [Shutdown](../README.md#shutdown) | `test_self_stop_and_cleanup.cpp` | Release candidate |
+| `TASK_RUNNING` is false only when the task is fully stopped. | [Task Management](../README.md#task-management) | `test_lifecycle_manual_start.cpp`, `test_self_stop_and_cleanup.cpp` | Release candidate |
+| `RAISE_FAULT()` sets the flag, exits the current `SWITCH`, and does not stop the task automatically. | [Flow Control](../README.md#flow-control), [Correct and Incorrect Patterns](../README.md#correct-and-incorrect-patterns) | `test_fault_flag.cpp` | Release candidate with diagnostic assertions |
+| `TASK_INSTANCE` gives instances independent context storage while sharing handlers. | [Task State and Context](../README.md#task-state-and-context) | `test_task_instance.cpp` | Release candidate |
+| After `Timer::set(period)`, expiry occurs when the elapsed tick count reaches the deadline and remains true until another `set()`. | [Timer: latched deadlines](../README.md#timer-latched-deadlines) | `test_timer.cpp` | Release candidate with a diagnostic default-state assertion |
+| `Clock` reports elapsed milliseconds and `start()` resets its reference point. | [Clock: elapsed-time stopwatch](../README.md#clock-elapsed-time-stopwatch) | `test_timer.cpp` | Release candidate |
+| A correctly typed context can be configured outside a task and observed by its later handler turn. | [Task Lifecycle Control](../README.md#task-lifecycle-control) | `test_cross_file_main.cpp`, `test_cross_file_task.cpp` | GCC-scoped diagnostic because of the documented cross-file ODR issue |
 
-Coverage gaps (known, not yet backed by a test): task registration order
-across translation units (undefined by design, see Known Limitations),
-`CASES(...)` name collisions within a translation unit, and context type
-mismatches across `CTX`/`ADD_TASK`/`TASK_CONTEXT`; these are compile-time or
-undefined-behavior cases that a host-side runtime test can't meaningfully
-pin down; see [Known Limitations](../README.md#known-limitations) instead.
+## Tests requiring revision
+
+`test_start_stop_noop_windows.cpp` mixes a valid stop-wait-start cycle with
+calls that are forbidden by the lifecycle protocol, including stop during
+Guard and Entry. Its supported portion should be replaced with a test that
+performs only:
+
+```text
+Loop -> Stop request -> cleanup -> fully Stopped -> Start -> Guard -> Entry -> Loop
+```
+
+The current silent rejection of lifecycle commands must not be presented as a
+supported application control-flow mechanism.
+
+The following assertions in otherwise useful tests are diagnostic rather than
+release requirements:
+
+- repeated fault raising when the task remains in the same case;
+- a default-constructed `Timer` reporting expired before its first `set()`.
+
+## Evidence gaps
+
+- cleanup-before-entry cross-task handover for meaningful relative task-list
+  positions;
+- C11 compilation of the public C headers;
+- mixed C/C++ linkage of `osTaskManager()` and `osTickISR()`;
+- direct verification of the `osTickISR()` bridge;
+- context-less task registration and supported state-machine use;
+- same-translation-unit reverse registration order;
+- the first implicitly numbered `CASES` state being selected after entry;
+- Timer/Clock behavior across a tick rollover, which cannot be exercised
+  efficiently without a controllable tick source;
+- a bounded scheduler driver that follows the manager's traversal without
+  invoking its intentionally infinite outer loop.
+
+## Documented limitations and invalid uses
+
+The following do not require successful feature tests:
+
+- wrong context types and context access on a context-less task;
+- portable cross-translation-unit registration;
+- direct ISR task-management or context access;
+- stop/start shortcuts and lifecycle cancellation during Guard or Entry;
+- an absent Timer disarm operation or drift-free periodic timer;
+- manual construction, copying, moving, assignment, or destruction of `Task`.

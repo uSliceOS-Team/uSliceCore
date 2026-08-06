@@ -61,6 +61,12 @@ The repository is one folder containing `uSliceCore.h`, `tasks/`, and `time/`. A
 CASES(BLINK);
 ```
 
+The first listed state is the initial state. `CASES` uses the enum's implicit
+dense numbering (`0, 1, 2, ...`); assigning numeric values manually is not
+supported in this version. The plain unscoped enum is an intentional part of
+the compact macro DSL, so state names must be unique within a translation
+unit.
+
 No `SETUP` state is needed here: one-time initialization has its own dedicated handler (`TASK_ENTRY`, step 4), so a task's `CASES` only needs to list its actual running states.
 
 **3. Define your task's context**
@@ -409,7 +415,7 @@ There is no formal benchmark suite yet (see [Documentation](#documentation)), so
 
 | Macro | Purpose |
 |---|---|
-| `CASES(...)` | Define state enumerations for one task |
+| `CASES(...)` | Define implicitly numbered states for one task; the first listed state is initial. Manual numeric values are unsupported |
 | `CTX(CtxType)` | First line of a `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP` body: declares `localTask`, typed |
 | `TASK_ENTRY(name)` | Define task entry handler, required, runs once per start before the first `TASK_LOOP` invocation. Same access as `TASK_LOOP`. Empty body if there is nothing to initialize |
 | `TASK_LOOP(name)` | Define task loop (per-pass) handler, required. Body has access to `localTask` (via `CTX`) and `self` (this task's own `Task*`) |
@@ -537,7 +543,7 @@ Wiring the core to real hardware requires a small amount of integration work:
 
 - **Task registration order across translation units is not guaranteed.** Registration relies on C++ static initialization of `inline` `Task` objects. Within a single translation unit, order is deterministic (reverse of declaration, due to the prepend-to-head list). Across multiple `.cpp` files, the C++ standard does not guarantee relative order. If your tasks do not depend on each other's execution order within a pass, this is a non-issue by design. If you need a specific cross-file order, the tasks are coupled in a way that this scheduler does not arbitrate. A compile-time registration system that removes this dependency entirely is planned (see [Current Status](#current-status)).
 - **`CASES(...)` state names are not namespaced per task.** Two `CASES(...)` blocks in the *same* translation unit sharing a name (e.g. both using `SETUP`) will collide. Give states in the same file distinct names, or keep one task per file.
-- **`CASES(...)` values are a plain `enum`, not `enum class`.** They implicitly convert to `Task::case_t` (a `uint32_t`) with no scoping and no compile-time protection against mixing values from different tasks.
+- **`CASES(...)` deliberately uses a plain enum as part of the compact DSL.** State names are unscoped and must be unique within a translation unit. Values must use the implicit dense numbering; manual numeric assignments are unsupported in this version.
 - **A task's context has no compile-time type check at all.** Unlike an earlier version of this library, context structs no longer need to derive from anything, and nothing checks whether the `CtxType` values in `CTX(CtxType)`, `ADD_TASK(name, CtxType)`, and `TASK_CONTEXT(name, CtxType)` are all the *same* type for a given task. `Task` stores your context as `void*` and never recovers the concrete type on its own. A mismatch anywhere in that chain is undefined behavior with no diagnostic and can be caught only by you (or a sanitizer) at runtime. Keeping `CtxType` textually consistent across a task's `.cpp`, its registration, and every external use is entirely your responsibility, not the compiler's.
 - **`RAISE_FAULT()` does not change control flow beyond exiting the current `SWITCH`.** It does not call `GOTO_CASE`, does not stop the task, and does not prevent the same `CASE` from running (and raising the fault again) on the very next pass. See [Correct and Incorrect Patterns](#correct-and-incorrect-patterns) for the pitfall this creates and how to avoid it.
 - **Nothing prevents a task from reaching another task, or itself, in any way `DECLARE_TASK`/`TASK_CONTEXT`/`START_TASK`/`STOP_TASK` allow.** There is no "Logic-only" enforcement; any file that includes the right declarations can call these on any task. Keeping that access disciplined is a project convention, not a compiler-checked one.

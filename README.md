@@ -41,6 +41,10 @@ This architecture is useful when task execution must remain serialized and lifec
 
 ## Quick Start
 
+Reproducible implementation and API problems that remain open are tracked in
+the living [`known issues`](docs/KNOWN_ISSUES.md) document. The README itself
+is the source of truth for supported public behavior.
+
 **1. Include the headers**
 
 ```cpp
@@ -230,9 +234,15 @@ START_TASK(motor);
 
 `CtxType` here must exactly match the type used by `ADD_TASK`/`ADD_TASK_AND_START` for that task. This is not checked automatically: `Task` does not know the concrete type, so there is nothing to check it against. The same trust model applies when writing `CTX(CtxType)` inside a task's own body.
 
-Within the main scheduling loop, tasks run sequentially, so one task may update another task's context without task-to-task synchronization. The update is visible before the target task's next `Loop_` call. Access from an ISR or another execution context requires deliberate platform-specific handling of atomicity, visibility, and timing. See the full example in [`examples/logic_controlled_tasks`](examples/logic_controlled_tasks).
+Within the main scheduling loop, tasks run sequentially, so one task may update another task's context without task-to-task synchronization. The update is visible before the target task's next `Loop_` call. See the full example in [`examples/logic_controlled_tasks`](examples/logic_controlled_tasks).
 
-The framework does not prevent `START_TASK`, `STOP_TASK`, `TASK_RUNNING`, `TASK_FAULTED`, or `TASK_CONTEXT` from being used in an ISR. Such use is an integration decision: the target must provide suitable atomic access to the affected data, and the developer must account for where the interrupt occurs relative to the scheduling loop. `TASK_CONTEXT` does not synchronize access to fields inside the context.
+Only the tick hook is intended to be called directly from an ISR. Task
+lifecycle state, fault state, and user context are not synchronized by the
+library, so `START_TASK`, `STOP_TASK`, `TASK_RUNNING`, `TASK_FAULTED`, and
+`TASK_CONTEXT` have no portable ISR-safety guarantee. Prefer platform-safe
+flags written by the ISR and consumed by scheduler tasks. Any direct access
+requires target/compiler-specific critical sections and visibility rules
+provided entirely by the integrator.
 
 **Fault handling is separate from lifecycle control.** See the next section and [Correct and Incorrect Patterns](#correct-and-incorrect-patterns).
 
@@ -322,6 +332,12 @@ Two deliberate aspects of this timer model are worth knowing:
 - A freshly constructed `Timer` has a zero period and is deliberately treated as expired. Call `set()` before checking it when you need an initial delay.
 - Once a timer expires, it remains in the expired state: `isExpired()` continues to return `true` until `set()` is called again. Calling `set()` starts a new deadline.
 
+Every `set(period)` schedules relative to the tick observed at that call.
+Repeatedly setting the same period after handling expiry therefore includes
+handler latency in the next interval and can accumulate phase drift. `Timer`
+is a relative deadline tracker; this version does not provide a phase-stable
+periodic timer primitive.
+
 The deadline check uses unsigned subtraction and handles a single rollover of the 32-bit tick counter correctly. Elapsed times spanning a full 2^32-tick cycle cannot be distinguished from shorter elapsed times.
 
 ### Clock: elapsed-time stopwatch
@@ -337,6 +353,12 @@ c.start();             // reset the reference point
 ```
 
 `get()` is just an alias for `getMs()`.
+
+Each getter takes its own tick snapshot. `getS()`, `getM()`, and `getH()` return
+total elapsed whole units, not display components. Derive multiple display
+components from one `getMs()` value when they must represent one coherent
+instant. Like `Timer`, `Clock` cannot distinguish an interval spanning a
+complete 32-bit tick cycle from a shorter wrapped interval.
 
 ### Memory
 
@@ -526,20 +548,28 @@ CASE(CHECK):
 
 µSliceCore is a minimal, platform-independent core. It uses standard C++17 and contains no vendor headers, inline assembly, peripheral drivers, or code tied to a specific MCU. Platform-specific drivers and higher-level modules are outside the scope of this repository and may be provided separately as optional extensions.
 
-The intended targets have a native word size of at least 32 bits. The time module relies on atomic access to its 32-bit tick counter. A narrower target requires a platform-specific counter type or synchronization strategy and will provide a shorter measurement range.
+The intended targets have a native word size of at least 32 bits. The timer ISR
+hook assumes atomic aligned 32-bit access to the tick counter. A target that
+does not provide it requires an integration-specific counter or synchronization
+strategy.
 
 Wiring the core to real hardware requires a small amount of integration work:
 
 1. **The millisecond tick.** Call `OS::Time::Core::onTickISR()` (C++) or `osTickISR()` (plain C, declared in `time/osTickISR.h`, also reachable via the root `uSliceCore.h` umbrella) once per millisecond from an ordinary hardware timer, `SysTick`, or an equivalent source. The accuracy of `Timer` and `Clock` follows the accuracy of this tick source.
 2. **The build itself.** The repository is one folder containing `uSliceCore.h`, `tasks/`, and `time/`. Add that single containing folder as your include directory (CMake `target_include_directories`, PlatformIO `lib/`, STM32CubeIDE/MounRiver include paths); this is what lets *your* code reach in with `tasks/osTaskCore.hpp`, `time/osTimeCore.hpp`, and so on. Inside the library itself, files address same-folder neighbors by bare quoted name (`osTaskCore.hpp`, not `tasks/osTaskCore.hpp`), which resolves from the including file's own directory regardless of your include path; only `uSliceCore.h` at the root reaches into `tasks/` and `time/` by folder-qualified name, since those aren't its own neighbors.
 3. **Language standard.** The C++ side requires C++17 or later. Only the C-linkage declarations (`tasks/osTaskManager.h`, `time/osTickISR.h`, and the `uSliceCore.h` umbrella over both) need to be reachable from C; everything else under `tasks/` and `time/` is compiled as C++ regardless of what language the rest of your project uses.
-4. **Mixed C/C++ projects.** `uSliceCore.h`, `tasks/osTaskManager.h`, and `time/osTickISR.h` all guard their declarations with `#ifdef __cplusplus extern "C" { ... }`, so any of them is safe to include from both a `.c` and a `.cpp` file. Task logic (`.cpp` files using `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`/`CASES`/`ADD_TASK`) and a plain-C `main.c` calling only `osTaskManager()`/`osTickISR()` can coexist in the same build; the compiler still needs a C++ toolchain to build the `.cpp` files and link the result.
-5. **The example.** [`examples/logic_controlled_tasks`](examples/logic_controlled_tasks) is a runnable, host-side (not on-target) demonstration of everything in [Task Lifecycle Control](#task-lifecycle-control); it's a good starting point to copy and modify.
-6. **Testing before hardware.** [`tests/`](tests) is a host-side test suite covering lifecycle timing, the fault flag, `TASK_INSTANCE`, `Timer`/`Clock`, and the `DECLARE_TASK`/`TASK_CONTEXT` cross-file pattern -- run `tests/run_tests.sh` on your PC before flashing a change to real hardware. See its own README for what's covered and why it's structured as several small binaries instead of one.
+4. **Static initialization.** Registration uses namespace-scope C++ dynamic initialization. The platform startup and linker must execute C++ static constructors / `.init_array` before `main`; otherwise the task list remains empty.
+5. **Mixed C/C++ projects.** `uSliceCore.h`, `tasks/osTaskManager.h`, and `time/osTickISR.h` all guard their declarations with `#ifdef __cplusplus extern "C" { ... }`, so any of them is safe to include from both a `.c` and a `.cpp` file. Task logic (`.cpp` files using `TASK_ENTRY`/`TASK_LOOP`/`TASK_STOP`/`CASES`/`ADD_TASK`) and a plain-C `main.c` calling only `osTaskManager()`/`osTickISR()` can coexist in the same build; the compiler still needs a C++ toolchain to build the `.cpp` files and link the result.
+6. **The example.** [`examples/logic_controlled_tasks`](examples/logic_controlled_tasks) is a runnable, host-side (not on-target) demonstration of everything in [Task Lifecycle Control](#task-lifecycle-control); it's a good starting point to copy and modify.
+7. **Testing before hardware.** [`tests/`](tests) is a host-side test suite covering lifecycle timing, the fault flag, `TASK_INSTANCE`, `Timer`/`Clock`, and the `DECLARE_TASK`/`TASK_CONTEXT` cross-file pattern -- run `tests/run_tests.sh` on your PC before flashing a change to real hardware. See its own README for what's covered and why it's structured as several small binaries instead of one.
 
 ---
 
 ## Known Limitations
+
+This summary does not replace the living
+[`known-issues document`](docs/KNOWN_ISSUES.md), which records the impact and
+planned resolution of each open technical problem.
 
 - **Task registration order across translation units is not guaranteed.** Registration relies on C++ static initialization of `inline` `Task` objects. Within a single translation unit, order is deterministic (reverse of declaration, due to the prepend-to-head list). Across multiple `.cpp` files, the C++ standard does not guarantee relative order. If your tasks do not depend on each other's execution order within a pass, this is a non-issue by design. If you need a specific cross-file order, the tasks are coupled in a way that this scheduler does not arbitrate. A compile-time registration system that removes this dependency entirely is planned (see [Current Status](#current-status)).
 - **`CASES(...)` state names are not namespaced per task.** Two `CASES(...)` blocks in the *same* translation unit sharing a name (e.g. both using `SETUP`) will collide. Give states in the same file distinct names, or keep one task per file.
@@ -556,6 +586,11 @@ Wiring the core to real hardware requires a small amount of integration work:
 This section is for anyone evaluating µSliceCore for use in, or alongside,
 safety-critical or regulated firmware (e.g. medical devices under IEC 62304).
 Read this before assuming more than what's actually here.
+
+Current reproducible defects and unsafe API limitations are tracked in the
+living [`known issues`](docs/KNOWN_ISSUES.md) document. Test coverage of the
+behavior documented in this README is mapped in
+[`tests/TRACEABILITY.md`](tests/TRACEABILITY.md).
 
 **What this is not:**
 - Not IEC 62304-compliant. Compliance is asserted by a device manufacturer

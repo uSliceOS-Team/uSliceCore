@@ -452,7 +452,7 @@ There is no formal benchmark suite yet (see [Documentation](#documentation)), so
 | `SWITCH` | Begin state machine, reading `self`'s current case |
 | `CASE(state)` | Define a state |
 | `GOTO_CASE(state)` | Select the state for the next loop invocation and exit the current switch, with no fallthrough |
-| `RAISE_FAULT()` | Flag a fault deliberately from any CASE, no fallthrough. Just a flag -- see [Task Lifecycle Control](#task-lifecycle-control) |
+| `RAISE_FAULT()` | Set the fault flag and immediately exit the current `SWITCH`; it does not stop the task or select another case -- see [Task Lifecycle Control](#task-lifecycle-control) |
 | `STOP_SELF()` | Stop this task from inside its own body, using `self` |
 | `SWITCH_END` | Close the state machine; unmatched case raises a fault the same way |
 
@@ -524,23 +524,32 @@ CASE(WAIT):
     GOTO_CASE(NEXT);
 ```
 
-**Raising a fault without deciding what happens next -- easy to trip over:**
+**Raising a fault without stopping the task -- easy to trip over:**
 ```cpp
 CASE(CHECK):
     if (sensorOutOfRange()) {
-        RAISE_FAULT();   // just a flag; jumps out of the switch, nothing else
+        RAISE_FAULT();   // sets the flag and immediately exits the switch
     }
     GOTO_CASE(READ);
 ```
-`RAISE_FAULT()` does not move the task to another case and does not stop it. If the branch that raises it doesn't also call `GOTO_CASE` or `STOP_SELF()`, the task lands right back in `CHECK` next pass and raises the fault again, every pass, forever -- "just a flag, no action required" working exactly as designed, but rarely what you actually want. Decide explicitly:
+`RAISE_FAULT()` does not move the task to another case or stop it, but it does
+immediately exit the current `SWITCH`. Consequently, any required action must
+happen before it. In the example above, `GOTO_CASE(READ)` is unreachable on the
+fault path, so the task lands back in `CHECK` on the next pass and raises the
+fault again. To stop and flag the task, use this order:
 ```cpp
 CASE(CHECK):
     if (sensorOutOfRange()) {
-        STOP_SELF();     // or GOTO_CASE(some recovery state)
-        RAISE_FAULT();   // order between the two doesn't matter here
+        STOP_SELF();     // request the lifecycle change first
+        RAISE_FAULT();   // then set the flag and exit the switch
     }
     GOTO_CASE(READ);
 ```
+
+Reversing those two calls never reaches `STOP_SELF()`. Likewise,
+`GOTO_CASE(recovery)` and `RAISE_FAULT()` cannot be sequenced: each exits the
+current `SWITCH`, so whichever macro comes second is unreachable. Choose the
+required behavior explicitly instead of placing one after the other.
 
 ---
 

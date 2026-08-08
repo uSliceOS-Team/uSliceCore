@@ -34,8 +34,9 @@ regenerated on the next run.
 
 ## Why one binary per scenario, not one binary with many cases
 
-A task registers itself into a single global linked list at C++
-static-init time (see Architecture in the root README) and there is no
+A task registers itself into a single global linked list during C++ static
+initialization (see
+[Architecture](../docs/TECHNICAL_REFERENCE.md#architecture)), and there is no
 way to unregister it. That's fine for firmware, which only ever needs
 one set of tasks for the process's entire lifetime -- but it means nothing in
 one test file can be reset before the next one runs *if they lived in
@@ -79,10 +80,12 @@ single binary.
 ## What isn't covered
 
 - Anything hardware-specific: GPIO, real interrupts, real timer
-  peripherals. This library is platform-independent by design (see
-  Integration in the root README); these tests exercise the scheduler
-  and macro layer only, driving `OS::Time::Core::onTickISR()` and
-  `Task::execute()` directly instead of through real hardware.
-- Timing/performance (pass duration, worst-case latency). See Timing in
-  the root README's Architecture section for why that isn't published
-  here at all, on-target or off.
+  peripherals. The core contains no target-specific code within its supported
+  32-bit scope (see
+  [Integration](../docs/TECHNICAL_REFERENCE.md#integration)); these tests
+  exercise the scheduler and macro layer only, driving
+  `OS::Time::Core::onTickISR()` and `Task::execute()` directly instead of
+  through real hardware.
+- Timing/performance (pass duration, worst-case latency). Bounded timing is an
+  architectural expectation, not a verified characteristic; see
+  [Timing](../docs/TECHNICAL_REFERENCE.md#timing).

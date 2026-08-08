@@ -38,7 +38,8 @@ private:
     bool faulted_ = false; // kept next to `state`: both are 1 byte, so
                            // grouping them avoids the alignment padding
                            // that would appear if a 4-byte field sat
-                           // between them (see Architecture in README).
+                           // between them (see Architecture in
+                           // docs/TECHNICAL_REFERENCE.md).
 
     case_t currentCase_ = 0;
 

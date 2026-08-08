@@ -3,7 +3,7 @@
  * @brief START_TASK only takes effect on a fully Stopped task; STOP_TASK
  * only takes effect once a task has actually reached Loop -- calling
  * either outside that window is a silent no-op, not an error. See the
- * note under Task Management in the root README's Macro Reference.
+ * note under Task Management in docs/TECHNICAL_REFERENCE.md.
  */
 
 #include "tasks/osTaskCore.hpp"

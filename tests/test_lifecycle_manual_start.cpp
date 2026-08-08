@@ -2,7 +2,7 @@
  * @file test_lifecycle_manual_start.cpp
  * @brief Manual start timing: Stopped -> Guard (inert) -> Entry -> Loop.
  * One extra buffer turn compared to autostart -- see the "Manual/delayed
- * start" workflow in the root README's Task Lifecycle Timing.
+ * start" workflow in docs/TECHNICAL_REFERENCE.md.
  */
 
 #include "tasks/osTaskCore.hpp"

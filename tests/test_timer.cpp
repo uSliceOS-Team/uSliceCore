@@ -1,6 +1,6 @@
 /**
  * @file test_timer.cpp
- * @brief OS::Time::Timer edge cases called out in the root README's
+ * @brief OS::Time::Timer edge cases called out in the technical reference's
  * Timers section and Known Limitations. No task scheduler involved here
  * -- Timer only depends on OS::Time::Core, driven directly.
  */
@@ -61,7 +61,7 @@ int main() {
     // rollover. Reaching that point would mean four billion+ calls to
     // onTickISR() in this same process, which isn't practical in a unit
     // test; the unsigned-subtraction reasoning is documented in
-    // osTime.hpp and the root README instead of exercised at scale here.
+    // osTime.hpp and the technical reference instead of exercised at scale here.
 
     return TEST_SUMMARY("test_timer");
 }

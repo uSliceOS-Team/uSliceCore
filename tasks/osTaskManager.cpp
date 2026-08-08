@@ -1,6 +1,7 @@
 /**
  * @file osTaskManager.cpp
- * @brief Platform-independent supercycle driver.
+ * @brief Target-independent supercycle driver within the supported 32-bit
+ * scope.
  *
  * Traverses the intrusive task list once per pass, calling execute() on
  * every registered task in turn. Contains no platform-specific code:

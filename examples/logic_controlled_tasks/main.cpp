@@ -2,7 +2,8 @@
  * @file main.cpp
  * @brief Entry point for the example -- a HOST-SIDE SIMULATION.
  *
- * uSliceCore is platform-independent and has no build system of its own;
+ * uSliceCore contains no target-specific code within its supported 32-bit
+ * scope and has no build system of its own;
  * on real hardware you would:
  *   1. Wire a 1 kHz hardware timer interrupt to osTickISR() (or
  *      OS::Time::Core::onTickISR() from C++), and

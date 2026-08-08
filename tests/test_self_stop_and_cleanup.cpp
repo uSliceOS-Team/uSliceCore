@@ -2,8 +2,8 @@
  * @file test_self_stop_and_cleanup.cpp
  * @brief STOP_SELF() and external STOP_TASK() both change state
  * immediately, but cleanup (TASK_STOP) runs on the task's *next*
- * scheduled turn, not the same one -- see Task Lifecycle Timing in the
- * root README. This test exercises the self-stop path; both share the
+ * scheduled turn, not the same one -- see Task Lifecycle Timing in
+ * docs/TECHNICAL_REFERENCE.md. This test exercises the self-stop path; both share the
  * same underlying taskStop().
  */
 

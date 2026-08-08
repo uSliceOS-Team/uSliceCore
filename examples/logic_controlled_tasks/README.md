@@ -2,8 +2,8 @@
 
 A minimal, runnable demonstration of:
 - one-time init via `TASK_ENTRY` (`LedBlinker.cpp`'s `GPIO_Init`, `Motor.cpp`
-  reading the speed Logic configured before start) -- see the two startup
-  workflows in the root `README.md` → Task Lifecycle Timing
+  reading the speed Logic configured before start) -- see
+  [Task Lifecycle Timing](../../docs/TECHNICAL_REFERENCE.md#task-lifecycle-timing)
 - a self-contained task that stops itself (`LedBlinker.cpp`, `STOP_SELF()`)
 - a task configured from Logic before it starts (`Motor.cpp` + `MotorCtx.hpp`, `TASK_CONTEXT`)
 - the fault flag being purely informational (`SensorMonitor.cpp`, `RAISE_FAULT()`)
@@ -15,7 +15,7 @@ on your machine, not on a microcontroller. `main.cpp` explains why (no
 real timer interrupt to drive `osTickISR()`, and `osTaskManager()` never
 returns, which doesn't fit a demo that needs to exit and print). On real
 hardware you'd wire up the tick interrupt and call `osTaskManager()`
-once instead; see the root `README.md` → Integration.
+once instead; see [Integration](../../docs/TECHNICAL_REFERENCE.md#integration).
 
 ## Build
 

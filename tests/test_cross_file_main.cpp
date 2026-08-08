@@ -6,7 +6,7 @@
  * TASK_CONTEXT before starting it, and confirms the value survives the
  * Guard buffer turn and is visible inside the task's own Entry handler
  * -- this is the exact mechanism from Task Lifecycle Control in the
- * root README, exercised for real instead of just described.
+ * technical reference, exercised for real instead of just described.
  */
 
 #include "tasks/osTaskCore.hpp"

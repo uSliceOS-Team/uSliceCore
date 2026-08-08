@@ -1,6 +1,6 @@
 # µSliceCore
 
-![Version](https://img.shields.io/badge/version-0.1-lightgrey)
+![Version](https://img.shields.io/badge/version-0.1--rc-lightgrey)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![Language](https://img.shields.io/badge/language-C%2B%2B-orange)
 ![Status](https://img.shields.io/badge/status-active%20development-yellowgreen)

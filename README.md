@@ -105,6 +105,10 @@ non-blocking.
 - [Host-side tests](tests) — supported behavior and test instructions.
 - [Known issues](docs/KNOWN_ISSUES.md) — reproducible open implementation and
   API problems.
+- [Changelog](CHANGELOG.md) — release history and current release status.
+- [Contributing](CONTRIBUTING.md) — contribution requirements and validation
+  instructions.
+- [Maintainers](MAINTAINERS.md) — current maintainers and their responsibilities.
 - [MISRA compliance matrix](docs/MISRA_COMPLIANCE.md) — work-in-progress
   template; not a compliance claim.
 

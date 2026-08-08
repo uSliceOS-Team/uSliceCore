@@ -24,7 +24,6 @@ A lightweight cooperative scheduler for C++17 firmware on supported 32-bit targe
 - [Safety & Process Notes](#safety--process-notes)
 - [Current Status](#current-status)
 - [Documentation](#documentation)
-- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -678,17 +677,6 @@ honest starting point, not a checklist that's already been ticked off.
 | Static analysis | cppcheck + clang-tidy, run locally (`tools/`) and enforced by CI for `main` (`.github/workflows/ci.yml`) |
 | MISRA compliance | Template only, not yet populated: see `docs/MISRA_COMPLIANCE.md` |
 | Requirement/test traceability | Informal, see `tests/TRACEABILITY.md` |
-
----
-
-## Contributing
-
-The project is at an early stage. Ways to contribute:
-
-- Report bugs via Issues
-- Propose improvements via Discussions
-- Submit code examples via pull requests
-- Report portability issues on C++17 toolchains
 
 ---
 

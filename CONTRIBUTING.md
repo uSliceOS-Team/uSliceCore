@@ -6,9 +6,9 @@ The project values small, reviewable changes, explicit behavior, reproducible te
 
 ## Project stage
 
-Until the `v0.1` tag is published, `main` is the integration branch for the 0.1 release candidate. Functional behavior of the 0.1 core is frozen; current work focuses on tests, documentation, and verification of that behavior.
+Until the `v0.1.0` tag is published, `main` is the integration branch for the 0.1.0 release candidate. Functional behavior of the 0.1.0 core is frozen; current work focuses on tests, documentation, and verification of that behavior.
 
-After the 0.1 release:
+After the 0.1.0 release:
 
 * `main` is protected;
 * changes reach shared branches through pull requests;

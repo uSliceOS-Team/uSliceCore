@@ -1,5 +1,5 @@
 # Changelog
 
-## v0.1.0 — Unreleased
+## v0.1.0 — 2026-08-09
 
-Initial public release.
+First tagged release of µSliceCore.

@@ -3,7 +3,7 @@
 A minimal, runnable demonstration of:
 - one-time init via `TASK_ENTRY` (`LedBlinker.cpp`'s `GPIO_Init`, `Motor.cpp`
   reading the speed Logic configured before start) -- see the two startup
-  workflows in the root `README.md` → Safe Task Lifecycle
+  workflows in the root `README.md` → Task Lifecycle Timing
 - a self-contained task that stops itself (`LedBlinker.cpp`, `STOP_SELF()`)
 - a task configured from Logic before it starts (`Motor.cpp` + `MotorCtx.hpp`, `TASK_CONTEXT`)
 - the fault flag being purely informational (`SensorMonitor.cpp`, `RAISE_FAULT()`)

@@ -2,7 +2,7 @@
  * @file test_lifecycle_autostart.cpp
  * @brief Autostart timing: Entry runs on the very first scheduler turn,
  * Loop runs from the turn after that. No wasted turn -- see the
- * "Autostart" workflow in the root README's Safe Task Lifecycle.
+ * "Autostart" workflow in the root README's Task Lifecycle Timing.
  */
 
 #include "tasks/osTaskCore.hpp"

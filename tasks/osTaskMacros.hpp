@@ -47,7 +47,7 @@
  * Runs exactly once per start, right before the task's first CASE on
  * that start, with currentCase_ and the fault flag already reset. Same
  * access as TASK_LOOP: rawCtx_ (via CTX) and self. See the two startup
- * workflows in Safe Task Lifecycle -- autostart tasks run this on their
+ * workflows in Task Lifecycle Timing -- autostart tasks run this on their
  * very first scheduler turn (Entry); manually started tasks pass through
  * one extra inert turn first (Guard).
  */

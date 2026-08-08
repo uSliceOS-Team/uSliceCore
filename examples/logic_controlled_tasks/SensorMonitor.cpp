@@ -24,7 +24,7 @@ struct SensorCtx {
 };
 
 TASK_ENTRY(sensorMonitor) {
-    printf("[sensorMonitor] START handler: sensor warm-up would go here\n");
+    printf("[sensorMonitor] ENTRY handler: sensor warm-up would go here\n");
 }
 
 TASK_LOOP(sensorMonitor) {

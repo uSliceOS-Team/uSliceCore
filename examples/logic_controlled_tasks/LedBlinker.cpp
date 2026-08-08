@@ -4,7 +4,7 @@
  *
  * Demonstrates:
  *  - a context struct with no base class (just a plain struct)
- *  - TASK_START: one-time init, no SETUP case needed in the state machine
+ *  - TASK_ENTRY: one-time init, no SETUP case needed in the state machine
  *  - GOTO_CASE for normal state transitions
  *  - STOP_SELF(): the task decides on its own that it's done and stops
  *    itself, without any external Logic call.
@@ -31,7 +31,7 @@ struct LedBlinkerCtx {
 };
 
 TASK_ENTRY(ledBlinker) {
-    printf("[ledBlinker] START handler: one-time init\n");
+    printf("[ledBlinker] ENTRY handler: one-time init\n");
     GPIO_Init(GPIO_LED);
 }
 
@@ -59,6 +59,6 @@ TASK_STOP(ledBlinker) {
 }
 
 // Autostart: this task doesn't need Logic to kick it off. Its very first
-// scheduler turn already runs TASK_START above -- no wasted pass before
+// scheduler turn already runs TASK_ENTRY above -- no wasted pass before
 // initialization, unlike a manually started task (see Motor.cpp).
 ADD_TASK_AND_START(ledBlinker, LedBlinkerCtx);

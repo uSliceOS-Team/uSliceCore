@@ -20,7 +20,7 @@ TASK_ENTRY(motor) {
     CTX(MotorCtx);
     // Logic set targetSpeed via TASK_CONTEXT before calling START_TASK
     // (see Logic.cpp), so it's already here by the time this runs.
-    printf("[motor] START handler: configured targetSpeed=%d\n", localTask->targetSpeed);
+    printf("[motor] ENTRY handler: configured targetSpeed=%d\n", localTask->targetSpeed);
 }
 
 TASK_LOOP(motor) {

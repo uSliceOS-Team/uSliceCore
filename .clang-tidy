@@ -14,18 +14,31 @@
 # - cppcoreguidelines-avoid-magic-numbers is left off: tick counts and
 #   pin/register-adjacent constants are inherent to this domain and a blanket
 #   ban produces more named single-use constants than clarity.
+# - portability-avoid-pragma-once is left off: the supported GCC/Clang embedded
+#   toolchains implement #pragma once, and the repository uses it consistently.
+#   Replacing it with guards would add boilerplate and guard-name collision risk
+#   without improving portability within the project's declared toolchain scope.
+# - cppcoreguidelines-use-default-member-init is left off: Task construction
+#   registers each instance and assigns its id from a shared counter. Keeping
+#   that side-effecting initialization in the constructor initializer list makes
+#   object-registration sequencing explicit; a blanket declaration-site style
+#   rule does not improve safety for this lifecycle-managed type.
 Checks: >
   -*,
   bugprone-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-use-default-member-init,
   misc-*,
   performance-*,
   portability-*,
+  -portability-avoid-pragma-once,
   readability-*,
   -readability-magic-numbers,
   -readability-identifier-length
 
-WarningsAsErrors: ''
+# CI must fail on every diagnostic that survives the checks and header filters.
+# Diagnostics suppressed as system/non-user code or by NOLINT remain suppressed.
+WarningsAsErrors: '*'
 HeaderFilterRegex: '(tasks|time)/.*'
 FormatStyle: none

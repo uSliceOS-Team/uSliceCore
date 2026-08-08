@@ -14,27 +14,31 @@
 
 #include "osTaskCore.hpp"
 
-#define START_TASK(name)    (OS::Tasks::name.taskStart())
-#define STOP_TASK(name)     (OS::Tasks::name.taskStop())
-#define TASK_RUNNING(name)  (OS::Tasks::name.isRunning())
+#define START_TASK(name) (OS::Tasks::name.taskStart())
+#define STOP_TASK(name) (OS::Tasks::name.taskStop())
+#define TASK_RUNNING(name) (OS::Tasks::name.isRunning())
 
 /// Just a flag: true if this task's context or state machine flagged a
 /// fault since its last start. Nothing stops automatically because of
 /// it -- for that, see STOP_SELF() (from the task itself) or STOP_TASK()
 /// (from here).
-#define TASK_FAULTED(name)  (OS::Tasks::name.isFaulted())
+#define TASK_FAULTED(name) (OS::Tasks::name.isFaulted())
 
 /// Forward-declare a task defined elsewhere (via ADD_TASK /
 /// ADD_TASK_AND_START in its own .cpp), so it can be reached by name
 /// here. Task itself only stores void* + function pointers, so this
 /// does NOT require the task's context type to be visible.
-#define DECLARE_TASK(name) \
-  namespace OS { namespace Tasks { extern Task name; } }
+#define DECLARE_TASK(name)                                                     \
+    namespace OS {                                                             \
+    namespace Tasks {                                                          \
+    extern Task name;                                                          \
+    }                                                                          \
+    }
 
 /// Typed access to a task's context, e.g. to set parameters before
 /// START_TASK or read results after it stops. CtxType must match
 /// exactly what ADD_TASK/ADD_TASK_AND_START used for this task -- not
 /// checked automatically, same trust model as CTX(CtxType) inside the
 /// task's own body.
-#define TASK_CONTEXT(name, CtxType) \
-  (*static_cast<CtxType*>(OS::Tasks::name.getRawContext()))
+#define TASK_CONTEXT(name, CtxType)                                            \
+    (*static_cast<CtxType*>(OS::Tasks::name.getRawContext()))

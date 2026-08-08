@@ -8,7 +8,8 @@
 
 #include "tasks/osTaskCore.hpp"
 
-static_assert(sizeof(void*) == 4, "this test must use a 32-bit data-pointer ABI");
+static_assert(sizeof(void*) == 4,
+              "this test must use a 32-bit data-pointer ABI");
 static_assert(sizeof(void (*)(void*, Task*)) == 4,
               "this test expects 32-bit function pointers");
 static_assert(sizeof(Task) == 36,

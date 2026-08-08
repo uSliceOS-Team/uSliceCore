@@ -14,6 +14,4 @@
 #include "osTickISR.h"
 #include "osTimeCore.hpp"
 
-extern "C" void osTickISR(void) {
-  OS::Time::Core::onTickISR();
-}
+extern "C" void osTickISR(void) { OS::Time::Core::onTickISR(); }

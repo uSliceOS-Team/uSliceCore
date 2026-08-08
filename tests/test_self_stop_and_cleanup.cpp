@@ -17,52 +17,51 @@
 CASES(RUN);
 
 struct SelfStopCtx {
-  int  loopCount = 0;
-  bool stopRan = false;
+    int loopCount = 0;
+    bool stopRan = false;
 };
 
 TASK_ENTRY(selfStopper) {}
 
 TASK_LOOP(selfStopper) {
-  CTX(SelfStopCtx);
-  SWITCH
-    CASE(RUN):
-      localTask->loopCount++;
-      if (localTask->loopCount == 3) {
+    CTX(SelfStopCtx);
+    SWITCH
+    CASE(RUN) : localTask->loopCount++;
+    if (localTask->loopCount == 3) {
         STOP_SELF();
-      }
-      break;
-  SWITCH_END
+    }
+    break;
+    SWITCH_END
 }
 
 TASK_STOP(selfStopper) {
-  CTX(SelfStopCtx);
-  localTask->stopRan = true;
+    CTX(SelfStopCtx);
+    localTask->stopRan = true;
 }
 
 ADD_TASK_AND_START(selfStopper, SelfStopCtx);
 DECLARE_TASK(selfStopper);
 
 int main() {
-  RUN_PASSES(1);  // Entry
-  RUN_PASSES(3);  // Loop x3 -- the third call fires STOP_SELF()
+    RUN_PASSES(1); // Entry
+    RUN_PASSES(3); // Loop x3 -- the third call fires STOP_SELF()
 
-  CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
-  // State changed to Stop already, but cleanup hasn't run yet: this is
-  // the same pass STOP_SELF() was called on.
-  CHECK(!TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
-  // isRunning() is true throughout Stop, same as Guard/Entry -- only
-  // false once actually Stopped. Don't mistake this turn's TASK_RUNNING
-  // for "still fully active."
-  CHECK(TASK_RUNNING(selfStopper));
+    CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
+    // State changed to Stop already, but cleanup hasn't run yet: this is
+    // the same pass STOP_SELF() was called on.
+    CHECK(!TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
+    // isRunning() is true throughout Stop, same as Guard/Entry -- only
+    // false once actually Stopped. Don't mistake this turn's TASK_RUNNING
+    // for "still fully active."
+    CHECK(TASK_RUNNING(selfStopper));
 
-  RUN_PASSES(1);  // next scheduled turn: cleanup runs
-  CHECK(TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
-  CHECK(!TASK_RUNNING(selfStopper));
+    RUN_PASSES(1); // next scheduled turn: cleanup runs
+    CHECK(TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
+    CHECK(!TASK_RUNNING(selfStopper));
 
-  // Loop must not have been called again after STOP_SELF() -- the task
-  // was in Stop, not Loop, on every turn after the third.
-  CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
+    // Loop must not have been called again after STOP_SELF() -- the task
+    // was in Stop, not Loop, on every turn after the third.
+    CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
 
-  return TEST_SUMMARY("test_self_stop_and_cleanup");
+    return TEST_SUMMARY("test_self_stop_and_cleanup");
 }

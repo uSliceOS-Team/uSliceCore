@@ -21,7 +21,7 @@
  * CASES(...) block in the *same* translation unit, give each task's
  * states distinct names; they are not namespaced per task.
  */
-#define CASES(...)  enum : Task::case_t { __VA_ARGS__ }
+#define CASES(...) enum : Task::case_t { __VA_ARGS__ }
 
 /**
  * @def CTX(CtxType)
@@ -34,7 +34,7 @@
  * compile-time check that it matches what ADD_TASK used for this task --
  * that's on you, the same way it always was inside a single file.
  */
-#define CTX(CtxType)  CtxType* localTask = static_cast<CtxType*>(rawCtx_)
+#define CTX(CtxType) CtxType* localTask = static_cast<CtxType*>(rawCtx_)
 
 // Task definition
 
@@ -60,10 +60,10 @@
  * pointer to its own Task object (`self`), so the task can manage its
  * own lifecycle if it wants to.
  */
-#define TASK_LOOP(name)  void Loop_##name(void* rawCtx_, Task* self)
+#define TASK_LOOP(name) void Loop_##name(void* rawCtx_, Task* self)
 
 /// Defines a task's stop (cleanup-on-stop) handler. Required for every task.
-#define TASK_STOP(name)  void Stop_##name(void* rawCtx_, Task* self)
+#define TASK_STOP(name) void Stop_##name(void* rawCtx_, Task* self)
 
 // Flow control
 //
@@ -71,10 +71,9 @@
 // switchEnd_ label used by GOTO_CASE, and C++ labels are
 // function-scoped, so a second SWITCH in the same function would collide.
 
-#define SWITCH \
-  switch (self->getCurrentCase()) {
+#define SWITCH switch (self->getCurrentCase()) {
 
-#define CASE(caseNum)  case (caseNum)
+#define CASE(caseNum) case (caseNum)
 
 /**
  * @def GOTO_CASE(caseNum)
@@ -82,8 +81,11 @@
  * No fallthrough into the next CASE, regardless of whether it's called
  * at the end of a case or from inside an unbraced `if`.
  */
-#define GOTO_CASE(caseNum) \
-  do { self->gotoCase(caseNum); goto switchEnd_; } while (0)
+#define GOTO_CASE(caseNum)                                                     \
+    do {                                                                       \
+        self->gotoCase(caseNum);                                               \
+        goto switchEnd_;                                                       \
+    } while (0)
 
 /**
  * @def RAISE_FAULT()
@@ -95,8 +97,11 @@
  * from outside) if you want to react to it -- reacting, including
  * stopping, is up to you.
  */
-#define RAISE_FAULT() \
-  do { self->raiseFault(); goto switchEnd_; } while (0)
+#define RAISE_FAULT()                                                          \
+    do {                                                                       \
+        self->raiseFault();                                                    \
+        goto switchEnd_;                                                       \
+    } while (0)
 
 /**
  * @def SWITCH_END
@@ -107,9 +112,11 @@
  * mistake): flags a fault the same way RAISE_FAULT() does. Nothing more
  * happens automatically -- see RAISE_FAULT() above.
  */
-#define SWITCH_END \
-  default: RAISE_FAULT(); \
-  } switchEnd_: ;
+#define SWITCH_END                                                             \
+    default:                                                                   \
+        RAISE_FAULT();                                                         \
+        }                                                                      \
+    switchEnd_:;
 
 /**
  * @def STOP_SELF()

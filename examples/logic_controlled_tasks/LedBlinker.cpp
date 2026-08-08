@@ -21,8 +21,10 @@
 // Host-side stand-ins for real GPIO calls -- see main.cpp for why this
 // example doesn't touch real hardware.
 #define GPIO_LED 0
-static void GPIO_Init(int pin)          { printf("  (GPIO_Init(%d))\n", pin); }
-static void GPIO_Write(int pin, int on) { printf("  (GPIO_Write(%d, %d))\n", pin, on); }
+static void GPIO_Init(int pin) { printf("  (GPIO_Init(%d))\n", pin); }
+static void GPIO_Write(int pin, int on) {
+    printf("  (GPIO_Write(%d, %d))\n", pin, on);
+}
 
 CASES(BLINK, DONE);
 
@@ -38,18 +40,18 @@ TASK_ENTRY(ledBlinker) {
 TASK_LOOP(ledBlinker) {
     CTX(LedBlinkerCtx);
     SWITCH
-        CASE(BLINK):
-            printf("[ledBlinker] blink (%d remaining)\n", localTask->blinksRemaining);
-            localTask->blinksRemaining--;
-            if (localTask->blinksRemaining <= 0) {
-                GOTO_CASE(DONE);
-            }
-            break;
+    CASE(BLINK)
+        : printf("[ledBlinker] blink (%d remaining)\n",
+                 localTask->blinksRemaining);
+    localTask->blinksRemaining--;
+    if (localTask->blinksRemaining <= 0) {
+        GOTO_CASE(DONE);
+    }
+    break;
 
-        CASE(DONE):
-            printf("[ledBlinker] done, stopping myself\n");
-            STOP_SELF();
-            break;
+    CASE(DONE) : printf("[ledBlinker] done, stopping myself\n");
+    STOP_SELF();
+    break;
     SWITCH_END
 }
 

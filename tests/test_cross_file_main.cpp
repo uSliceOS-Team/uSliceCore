@@ -18,17 +18,18 @@
 DECLARE_TASK(crossFileMotor);
 
 int main() {
-  TASK_CONTEXT(crossFileMotor, CrossFileCtx).targetSpeed = 77;
-  START_TASK(crossFileMotor);
+    TASK_CONTEXT(crossFileMotor, CrossFileCtx).targetSpeed = 77;
+    START_TASK(crossFileMotor);
 
-  RUN_PASSES(1);  // Guard: inert, targetSpeed must still read back as 77
-  CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).targetSpeed, 77);
+    RUN_PASSES(1); // Guard: inert, targetSpeed must still read back as 77
+    CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).targetSpeed, 77);
 
-  RUN_PASSES(1);  // Entry: the task's own Entry_ handler runs now
-  CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).entrySawTargetSpeed, 77);
+    RUN_PASSES(1); // Entry: the task's own Entry_ handler runs now
+    CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).entrySawTargetSpeed,
+             77);
 
-  RUN_PASSES(1);  // first real Loop
-  CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).actualSpeed, 77);
+    RUN_PASSES(1); // first real Loop
+    CHECK_EQ(TASK_CONTEXT(crossFileMotor, CrossFileCtx).actualSpeed, 77);
 
-  return TEST_SUMMARY("test_cross_file_declare_and_context");
+    return TEST_SUMMARY("test_cross_file_declare_and_context");
 }

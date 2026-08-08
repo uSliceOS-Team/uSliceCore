@@ -19,14 +19,13 @@
  * every task. execute() itself returns the next task in the list, so the
  * loop needs no separate pointer to advance it.
  */
-extern "C"
-void osTaskManager(void) {
-  static Task* task = nullptr;
+extern "C" void osTaskManager(void) {
+    static Task* task = nullptr;
 
-  while (true) {
-    task = Task::getHead();
-    while (task != nullptr) {
-      task = task->execute();
+    while (true) {
+        task = Task::getHead();
+        while (task != nullptr) {
+            task = task->execute();
+        }
     }
-  }
 }

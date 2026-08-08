@@ -15,19 +15,19 @@
 CASES(SPIN_UP);
 
 TASK_ENTRY(crossFileMotor) {
-  CTX(CrossFileCtx);
-  localTask->entrySawTargetSpeed = localTask->targetSpeed;
+    CTX(CrossFileCtx);
+    localTask->entrySawTargetSpeed = localTask->targetSpeed;
 }
 
 TASK_LOOP(crossFileMotor) {
-  CTX(CrossFileCtx);
-  SWITCH
-    CASE(SPIN_UP):
-      localTask->actualSpeed = localTask->targetSpeed;
-      break;
-  SWITCH_END
+    CTX(CrossFileCtx);
+    SWITCH
+    CASE(SPIN_UP) : localTask->actualSpeed = localTask->targetSpeed;
+    break;
+    SWITCH_END
 }
 
 TASK_STOP(crossFileMotor) {}
 
-ADD_TASK(crossFileMotor, CrossFileCtx);  // manual start: main.cpp configures then starts
+ADD_TASK(crossFileMotor,
+         CrossFileCtx); // manual start: main.cpp configures then starts

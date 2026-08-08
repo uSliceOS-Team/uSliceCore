@@ -30,26 +30,23 @@ TASK_ENTRY(sensorMonitor) {
 TASK_LOOP(sensorMonitor) {
     CTX(SensorCtx);
     SWITCH
-        CASE(READ):
-            localTask->reading++;                 // stand-in for ADC_Read()
-            GOTO_CASE(CHECK);
+    CASE(READ) : localTask->reading++; // stand-in for ADC_Read()
+    GOTO_CASE(CHECK);
 
-        CASE(CHECK):
-            if (localTask->reading >= 4) {
-                printf("[sensorMonitor] reading %d out of range -- flagging and stopping\n",
-                       localTask->reading);
-                STOP_SELF();     // decide what happens *before* the jump below
-                RAISE_FAULT();   // sets the flag and exits the switch; order
-                                  // between these two calls doesn't matter,
-                                  // both are plain function calls
-            }
-            printf("[sensorMonitor] reading %d ok\n", localTask->reading);
-            GOTO_CASE(READ);
+    CASE(CHECK) : if (localTask->reading >= 4) {
+        printf("[sensorMonitor] reading %d out of range -- flagging and "
+               "stopping\n",
+               localTask->reading);
+        STOP_SELF();   // decide what happens *before* the jump below
+        RAISE_FAULT(); // sets the flag and exits the switch; order
+                       // between these two calls doesn't matter,
+                       // both are plain function calls
+    }
+    printf("[sensorMonitor] reading %d ok\n", localTask->reading);
+    GOTO_CASE(READ);
     SWITCH_END
 }
 
-TASK_STOP(sensorMonitor) {
-    printf("[sensorMonitor] stopped (cleanup ran)\n");
-}
+TASK_STOP(sensorMonitor) { printf("[sensorMonitor] stopped (cleanup ran)\n"); }
 
 ADD_TASK_AND_START(sensorMonitor, SensorCtx);

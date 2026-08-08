@@ -20,22 +20,21 @@ CASES(INIT, MONITOR);
 
 struct LogicCtx {};
 
-TASK_ENTRY(logic) {}  // nothing to initialize; still required, empty is fine
+TASK_ENTRY(logic) {} // nothing to initialize; still required, empty is fine
 
 TASK_LOOP(logic) {
     CTX(LogicCtx);
     SWITCH
-        CASE(INIT):
-            printf("[logic] configuring motor and starting it\n");
-            TASK_CONTEXT(motor, MotorCtx).targetSpeed = 42;
-            START_TASK(motor);
-            GOTO_CASE(MONITOR);
+    CASE(INIT) : printf("[logic] configuring motor and starting it\n");
+    TASK_CONTEXT(motor, MotorCtx).targetSpeed = 42;
+    START_TASK(motor);
+    GOTO_CASE(MONITOR);
 
-        CASE(MONITOR):
-            if (TASK_FAULTED(sensorMonitor)) {
-                printf("[logic] sensorMonitor faulted at some point (diagnostic only)\n");
-            }
-            break;
+    CASE(MONITOR) : if (TASK_FAULTED(sensorMonitor)) {
+        printf(
+            "[logic] sensorMonitor faulted at some point (diagnostic only)\n");
+    }
+    break;
     SWITCH_END
 }
 

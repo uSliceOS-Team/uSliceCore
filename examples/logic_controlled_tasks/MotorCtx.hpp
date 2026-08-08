@@ -12,6 +12,6 @@
 #pragma once
 
 struct MotorCtx {
-    int targetSpeed = 0;   // written by Logic before START_TASK
-    int actualSpeed = 0;   // written by the task itself, read back by Logic
+    int targetSpeed = 0; // written by Logic before START_TASK
+    int actualSpeed = 0; // written by the task itself, read back by Logic
 };

@@ -23,7 +23,8 @@
 #include <cstdio>
 
 int main(void) {
-    printf("=== uSliceCore example: logic-controlled tasks (host simulation) ===\n\n");
+    printf("=== uSliceCore example: logic-controlled tasks (host simulation) "
+           "===\n\n");
 
     const int PASSES = 12;
     for (int pass = 0; pass < PASSES; pass++) {
@@ -36,10 +37,10 @@ int main(void) {
 
     printf("\n=== final state ===\n");
     printf("ledBlinker   running=%d\n", TASK_RUNNING(ledBlinker));
-    printf("motor        running=%d actualSpeed=%d\n",
-           TASK_RUNNING(motor), TASK_CONTEXT(motor, MotorCtx).actualSpeed);
-    printf("sensorMonitor running=%d faulted=%d\n",
-           TASK_RUNNING(sensorMonitor), TASK_FAULTED(sensorMonitor));
+    printf("motor        running=%d actualSpeed=%d\n", TASK_RUNNING(motor),
+           TASK_CONTEXT(motor, MotorCtx).actualSpeed);
+    printf("sensorMonitor running=%d faulted=%d\n", TASK_RUNNING(sensorMonitor),
+           TASK_FAULTED(sensorMonitor));
 
     return 0;
 }

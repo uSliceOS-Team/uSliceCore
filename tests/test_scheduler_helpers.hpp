@@ -14,8 +14,10 @@
 /// instead of infinite so a test can inspect state between passes and
 /// exit.
 inline void RUN_PASSES(int count) {
-  for (int i = 0; i < count; i++) {
-    Task* t = Task::getHead();
-    while (t) { t = t->execute(); }
-  }
+    for (int i = 0; i < count; i++) {
+        Task* t = Task::getHead();
+        while (t) {
+            t = t->execute();
+        }
+    }
 }

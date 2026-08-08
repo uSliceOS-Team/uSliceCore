@@ -17,6 +17,18 @@ Optionally pass a specific compiler: `./run_tests.sh g++-13`. Requires
 C++17. Exits `0` only if every test passed -- wire it into CI as a gate
 before a build step that targets real hardware.
 
+The compile-only 32-bit ABI layout check is separate:
+
+```sh
+./run_task_size_32.sh
+```
+
+It asks Clang to lay out `Task` for three representative targets: ARM
+Cortex-M3/EABI, RISC-V RV32IMAC/ILP32, and the RV32E/ILP32E profile used by
+CH32V003. It then checks `sizeof(Task) == 36` with `static_assert`. It does not
+link or execute target code, so it needs neither QEMU nor target hardware. The
+command succeeds only when all three target compilations satisfy the assertion.
+
 Build artifacts land in `.build/`; delete that folder any time, it's
 regenerated on the next run.
 
@@ -60,6 +72,9 @@ single binary.
   `DECLARE_TASK`/`TASK_CONTEXT` cross-file pattern from Task Lifecycle
   Control, built as two translation units the way a real project would
   split a task from its Logic, not simulated within one file.
+- `test_task_size_32.cpp` -- compile-time RAM-layout budget: `Task` is 36
+  bytes for Cortex-M3/EABI, RV32IMAC/ILP32, and RV32E/ILP32E. This is run by
+  `run_task_size_32.sh`, separately from the executable host tests.
 
 ## What isn't covered
 

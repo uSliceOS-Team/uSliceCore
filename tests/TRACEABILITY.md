@@ -21,6 +21,7 @@ Tests that only characterize a known issue are explicitly marked diagnostic.
 | After `Timer::set(period)`, expiry occurs when the elapsed tick count reaches the deadline and remains true until another `set()`. | [Timer: latched deadlines](../README.md#timer-latched-deadlines) | `test_timer.cpp` | Release candidate with a diagnostic default-state assertion |
 | `Clock` reports elapsed milliseconds and `start()` resets its reference point. | [Clock: elapsed-time stopwatch](../README.md#clock-elapsed-time-stopwatch) | `test_timer.cpp` | Release candidate |
 | A correctly typed context can be configured outside a task and observed by its later handler turn. | [Task Lifecycle Control](../README.md#task-lifecycle-control) | `test_cross_file_main.cpp`, `test_cross_file_task.cpp` | GCC-scoped diagnostic because of the documented cross-file ODR issue |
+| `Task` occupies 36 bytes with the checked Cortex-M3/EABI, RV32IMAC/ILP32, and RV32E/ILP32E targets. | [Architecture](../README.md#architecture) | `test_task_size_32.cpp`, `run_task_size_32.sh` | Compile-time ABI/RAM-budget check |
 
 ## Tests requiring revision
 

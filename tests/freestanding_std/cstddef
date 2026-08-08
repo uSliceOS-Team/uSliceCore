@@ -1,0 +1,12 @@
+#pragma once
+
+// Minimal freestanding substitute used only by test_task_size_32.cpp.
+// It lets Clang calculate the target ABI layout without requiring an ARM or
+// RISC-V C++ sysroot. Keep this file limited to names required by core headers.
+namespace std {
+using size_t = __SIZE_TYPE__;
+using ptrdiff_t = __PTRDIFF_TYPE__;
+}  // namespace std
+
+using std::ptrdiff_t;
+using std::size_t;

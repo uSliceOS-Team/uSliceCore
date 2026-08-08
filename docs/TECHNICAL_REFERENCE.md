@@ -300,7 +300,7 @@ Stopped -- START_TASK() ──> Guard (inert, manual start only) ──> Entry (
 
 `TASK_ENTRY`, `TASK_LOOP`, and `TASK_STOP` are all required. A task missing any of the three cannot be registered: a missing `Entry_name`/`Loop_name`/`Stop_name` function is a linker error, not a runtime check. An empty body is fine if a task genuinely has nothing to do at entry or stop.
 
-The host-side test suite covers this turn sequencing (both workflows, cleanup deferral, and the no-op windows below), and you can run it before touching real hardware -- see [`tests/`](../tests).
+The host-side test suite covers this turn sequencing (both workflows, cleanup deferral, legal restart, and cross-task handover in either relative list order), and you can run it before touching real hardware -- see [`tests/`](../tests).
 
 ---
 

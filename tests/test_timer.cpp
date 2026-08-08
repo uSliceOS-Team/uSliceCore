@@ -57,11 +57,8 @@ int main() {
         CHECK_EQ(c.getMs(), 0u);
     }
 
-    // Not exercised here: wraparound safety at the ~49.7-day (2^32 ms)
-    // rollover. Reaching that point would mean four billion+ calls to
-    // onTickISR() in this same process, which isn't practical in a unit
-    // test; the unsigned-subtraction reasoning is documented in
-    // osTime.hpp and the technical reference instead of exercised at scale here.
+    // Rollover requires a controllable tick source. Adding one changes code in
+    // time/, so direct rollover evidence is deferred to version 0.2.0.
 
     return TEST_SUMMARY("test_timer");
 }

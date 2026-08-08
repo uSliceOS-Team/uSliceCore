@@ -13,9 +13,10 @@ takes a few seconds and catches it immediately instead.
 ./run_tests.sh
 ```
 
-Optionally pass a specific compiler: `./run_tests.sh g++-13`. Requires
-C++17. Exits `0` only if every test passed -- wire it into CI as a gate
-before a build step that targets real hardware.
+Optionally pass specific C++ and C compilers:
+`./run_tests.sh g++-13 gcc-13`. Requires C++17 and C11. Exits `0` only if
+every test passed -- wire it into CI as a gate before a build step that targets
+real hardware.
 
 The compile-only 32-bit ABI layout check is separate:
 
@@ -63,12 +64,17 @@ single binary.
   triple.
 - `test_timer.cpp` -- `OS::Time::Timer`'s fresh-instance trap
   (`isExpired() == true` before the first `set()`), latched-expiry behavior,
-  and `OS::Time::Clock` elapsed-time tracking. Does not exercise the
-  2^32 ms wraparound point; reaching it would need billions of ticks in
-  one process, which isn't practical here.
-- `test_start_stop_noop_windows.cpp` -- `START_TASK`/`STOP_TASK` being
-  silent no-ops outside the state they expect (already running, or not
-  yet in Loop).
+  and `OS::Time::Clock` elapsed-time tracking. Direct rollover evidence needs
+  a controllable tick source in `time/` and is deferred to version 0.2.0.
+- `test_restart_after_cleanup.cpp` -- the supported restart path: legal stop,
+  cleanup, fully stopped, then Guard, Entry, and Loop.
+- `test_cross_task_handover.cpp` -- outgoing cleanup precedes incoming entry
+  for both meaningful relative positions in the task list.
+- `test_contextless_and_registration.cpp` -- context-less FSM execution, the
+  first implicit `CASES` state, and reverse same-translation-unit registration
+  order.
+- `test_c_api.c` + `test_c_api.cpp` -- C11 header compilation, mixed C/C++
+  linkage, and direct verification of the `osTickISR()` bridge.
 - `test_cross_file_task.cpp` + `test_cross_file_main.cpp` -- the actual
   `DECLARE_TASK`/`TASK_CONTEXT` cross-file pattern from Task Lifecycle
   Control, built as two translation units the way a real project would
@@ -83,9 +89,10 @@ single binary.
   peripherals. The core contains no target-specific code within its supported
   32-bit scope (see
   [Integration](../docs/TECHNICAL_REFERENCE.md#integration)); these tests
-  exercise the scheduler and macro layer only, driving
-  `OS::Time::Core::onTickISR()` and `Task::execute()` directly instead of
-  through real hardware.
+  exercise the scheduler and macro layer only, using a bounded helper that
+  mirrors the manager traversal and driving the C-linkage tick bridge instead
+  of real hardware. Extracting a bounded pass shared with `osTaskManager()`
+  requires a functional change in `tasks/` and is deferred to version 0.2.0.
 - Timing/performance (pass duration, worst-case latency). Bounded timing is an
   architectural expectation, not a verified characteristic; see
   [Timing](../docs/TECHNICAL_REFERENCE.md#timing).

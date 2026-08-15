@@ -2,76 +2,171 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  tests:
-    name: Host-side test suite
+  host-tests:
+    name: Host tests (${{ matrix.compiler }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC
+            cxx: g++
+            cc: gcc
+          - compiler: Clang
+            cxx: clang++
+            cc: clang
     steps:
       - uses: actions/checkout@v5
-
-      - name: Run tests/run_tests.sh
-        run: bash tests/run_tests.sh
+      - name: Build and run strict host tests
+        env:
+          USLICE_SANITIZERS: "1"
+        run: bash tests/run_tests.sh "${{ matrix.cxx }}" "${{ matrix.cc }}"
 
   task-size-32:
-    name: Task size (RV32 and ARM32)
+    name: Task layout (RV32, RV32E, ARM32)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-
-      - name: Install Clang
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq clang
-
-      - name: Compile 32-bit ABI layout checks
+      - name: Compile freestanding ABI checks
         run: bash tests/run_task_size_32.sh
 
   static-analysis:
-    name: Static analysis (cppcheck + clang-tidy)
+    name: Static analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-
-      - name: Install cppcheck and clang-tidy
+      - name: Install analyzers
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cppcheck clang-tidy
-
-      # tools/cppcheck.sh already sets --error-exitcode=1, so this fails
-      # the job on any finding, not just on a crash.
-      - name: cppcheck (tasks/, time/, uSliceCore.h)
-        run: bash tools/cppcheck.sh
-
-      # Scope matches .clang-tidy's own HeaderFilterRegex: the library
-      # core (tasks/, time/), not tests/ or examples/, which intentionally
-      # use host-side patterns the core's checks don't apply to.
-      - name: clang-tidy (tasks/, time/)
+          sudo apt-get install -y -qq clang-format clang-tidy cppcheck shellcheck
+      - name: Formatting
         run: |
-          clang-tidy tasks/osTaskManager.cpp time/osTickISR.cpp \
-            -- -std=c++17 -I.
+          mapfile -d '' sources < <(
+            find tasks time tests examples/logic_controlled_tasks -type f \
+              \( -name '*.c' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) \
+              ! -path '*/generated/*' -print0
+          )
+          clang-format --dry-run --Werror "${sources[@]}"
+      - name: Shell scripts
+        run: shellcheck tests/*.sh tools/*.sh
+      - name: cppcheck
+        run: bash tools/cppcheck.sh
+      - name: clang-tidy
+        run: clang-tidy time/osTickISR.cpp -- -std=gnu++20 -I.
+      - name: clang-tidy generated example
+        run: |
+          clang-tidy \
+            examples/logic_controlled_tasks/*.cpp \
+            examples/logic_controlled_tasks/generated/*.cpp \
+            examples/logic_controlled_tasks/generated/*.hpp \
+            --extra-arg=-xc++ -- \
+            -std=gnu++20 -I. -Iexamples/logic_controlled_tasks
 
-  build-example:
-    name: Build & run host-side example
+  code-generation:
+    name: Generated task API is current
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-
-      - name: Build examples/logic_controlled_tasks
+      - name: Validate generator syntax
+        run: bash -n tools/taskgen.sh
+      - name: Generate files
         run: |
-          g++ -std=c++17 -Wall -Wextra -I. \
+          bash tools/taskgen.sh examples/logic_controlled_tasks/Tasks.uslice \
+            --api examples/logic_controlled_tasks/generated/Tasks.generated.hpp \
+            --manager examples/logic_controlled_tasks/generated/Manager.generated.hpp \
+            --definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp \
+            --api-include generated/Tasks.generated.hpp \
+            --manager-include generated/Manager.generated.hpp
+      - name: Check generated files are deterministic
+        run: |
+          bash tools/taskgen.sh examples/logic_controlled_tasks/Tasks.uslice \
+            --api examples/logic_controlled_tasks/generated/Tasks.generated.hpp \
+            --manager examples/logic_controlled_tasks/generated/Manager.generated.hpp \
+            --definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp \
+            --api-include generated/Tasks.generated.hpp \
+            --manager-include generated/Manager.generated.hpp \
+            --check
+
+  code-generation-windows:
+    name: Generated task API is current (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Generate files with PowerShell
+        shell: pwsh
+        run: |
+          & ./tools/taskgen.ps1 `
+            -InputPath examples/logic_controlled_tasks/Tasks.uslice `
+            -Api examples/logic_controlled_tasks/generated/Tasks.generated.hpp `
+            -Manager examples/logic_controlled_tasks/generated/Manager.generated.hpp `
+            -Definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp `
+            -ApiInclude generated/Tasks.generated.hpp `
+            -ManagerInclude generated/Manager.generated.hpp `
+            -MainPath main.cpp
+      - name: Check generated files are deterministic with PowerShell
+        shell: pwsh
+        run: |
+          & ./tools/taskgen.ps1 `
+            -InputPath examples/logic_controlled_tasks/Tasks.uslice `
+            -Api examples/logic_controlled_tasks/generated/Tasks.generated.hpp `
+            -Manager examples/logic_controlled_tasks/generated/Manager.generated.hpp `
+            -Definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp `
+            -ApiInclude generated/Tasks.generated.hpp `
+            -ManagerInclude generated/Manager.generated.hpp `
+            -MainPath main.cpp `
+            -Check
+
+  example:
+    name: Build and run generated example (${{ matrix.compiler }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build example with strict diagnostics
+        run: |
+          ${{ matrix.compiler }} -std=gnu++20 -Wall -Wextra -Wpedantic -Werror \
+            -Wconversion -Wsign-conversion -Wshadow -Wundef -Wformat=2 \
+            -Wswitch-enum \
+            -I. -Iexamples/logic_controlled_tasks \
             examples/logic_controlled_tasks/LedBlinker.cpp \
             examples/logic_controlled_tasks/Motor.cpp \
             examples/logic_controlled_tasks/SensorMonitor.cpp \
             examples/logic_controlled_tasks/Logic.cpp \
+            examples/logic_controlled_tasks/generated/Tasks.generated.cpp \
             examples/logic_controlled_tasks/main.cpp \
-            tasks/osTaskManager.cpp \
-            time/osTickISR.cpp \
             -o example
-
       - name: Run example
         run: ./example
+
+  cmake-integration:
+    name: CMake code-generation integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -S examples/logic_controlled_tasks -B build/example
+      - name: Build
+        run: cmake --build build/example --parallel
+      - name: Run example
+        run: ./build/example/uslice_codegen_example

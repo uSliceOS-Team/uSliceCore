@@ -1,0 +1,12 @@
+---
+# The language standard belongs to C++ translation units.  Applying it to
+# clangd's C fallback command makes clang reject the option for .h/.c files.
+If:
+  PathMatch: .*\.(cpp|cc|cxx|hpp|hh|hxx)$
+CompileFlags:
+  Add:
+    - -std=gnu++20
+
+---
+Index:
+  Background: Build

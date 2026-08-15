@@ -15,13 +15,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-SOURCES="tasks time uSliceCore.h"
+SOURCES=(tasks time uSliceCore.h)
 COMMON_FLAGS=(
     --enable=warning,style,performance,portability
     --inconclusive
-    --std=c++17
+    --std=c++20
+    -D__cpp_consteval=201811L
     --language=c++
     --error-exitcode=1
+    --inline-suppr
     --suppress=missingIncludeSystem
 )
 
@@ -36,7 +38,7 @@ if [[ "${1:-}" == "--misra" ]]; then
         echo "No tools/misra_rule_texts.txt found -- MISRA findings will show" \
             "rule IDs only, no descriptive text. See tools/misra_rule_texts.example.txt."
     fi
-    cppcheck "${COMMON_FLAGS[@]}" "${MISRA_ARGS[@]}" $SOURCES
+    cppcheck "${COMMON_FLAGS[@]}" "${MISRA_ARGS[@]}" "${SOURCES[@]}"
 else
-    cppcheck "${COMMON_FLAGS[@]}" $SOURCES
+    cppcheck "${COMMON_FLAGS[@]}" "${SOURCES[@]}"
 fi

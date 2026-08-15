@@ -2,8 +2,13 @@
 # Linux/macOS -- see tests/README.md).
 tests/.build/
 
+# Per-developer editor state. Shared clangd configuration lives in .clangd
+# and compile_flags.txt instead.
+.vscode/
+
 # Build artifact from examples/logic_controlled_tasks (see its README).
 examples/logic_controlled_tasks/example
+build/
 
 # Generic fallback for the above on other platforms.
 *.exe

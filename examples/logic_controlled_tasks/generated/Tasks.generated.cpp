@@ -9,36 +9,32 @@
 namespace example::tasks {
 
 constinit LedBlinkerContext ledBlinkerContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task ledBlinker{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+constinit ::uslice::Task ledBlinker{::uslice::Task::Definition<::Loop_ledBlinker>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     .entry = ::Entry_ledBlinker,
-    .loop = ::Loop_ledBlinker,
     .stop = ::Stop_ledBlinker,
     .context = &ledBlinkerContext,
     .autostart = true,
 }};
 
 constinit MotorContext motorContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task motor{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+constinit ::uslice::Task motor{::uslice::Task::Definition<::Loop_motor>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     .entry = ::Entry_motor,
-    .loop = ::Loop_motor,
     .stop = ::Stop_motor,
     .context = &motorContext,
     .autostart = false,
 }};
 
 constinit SensorMonitorContext sensorMonitorContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task sensorMonitor{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+constinit ::uslice::Task sensorMonitor{::uslice::Task::Definition<::Loop_sensorMonitor>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     .entry = ::Entry_sensorMonitor,
-    .loop = ::Loop_sensorMonitor,
     .stop = ::Stop_sensorMonitor,
     .context = &sensorMonitorContext,
     .autostart = true,
 }};
 
 constinit LogicContext logicContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task logic{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+constinit ::uslice::Task logic{::uslice::Task::Definition<::Loop_logic>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
     .entry = ::Entry_logic,
-    .loop = ::Loop_logic,
     .stop = ::Stop_logic,
     .context = &logicContext,
     .autostart = true,

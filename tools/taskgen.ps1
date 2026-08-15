@@ -179,7 +179,7 @@ function Render-Api {
         Add-Line $builder ("void Stop_{0}(void* rawCtx_, ::uslice::Task* self);" -f $task)
     }
     Add-Line $builder
-    Add-Line $builder ("namespace {0} {" -f $cppNamespace)
+    Add-Line $builder ("namespace {0} {{" -f $cppNamespace)
     Add-Line $builder
     foreach ($task in $tasks) {
         $stem = Type-Stem $task
@@ -238,9 +238,8 @@ function Render-Definitions {
         $task = $tasks[$taskIndex]
         $stem = Type-Stem $task
         Add-Line $builder ("constinit {0}Context {1}Context{{}}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $stem, $task)
-        Add-Line $builder ("constinit ::uslice::Task {0}{{::uslice::Task::Definition{{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $task)
+        Add-Line $builder ("constinit ::uslice::Task {0}{{::uslice::Task::Definition<::Loop_{0}>{{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $task)
         Add-Line $builder ("    .entry = ::Entry_{0}," -f $task)
-        Add-Line $builder ("    .loop = ::Loop_{0}," -f $task)
         Add-Line $builder ("    .stop = ::Stop_{0}," -f $task)
         Add-Line $builder ("    .context = &{0}Context," -f $task)
         Add-Line $builder ("    .autostart = {0}," -f ($(if ($autostarts[$taskIndex]) { 'true' } else { 'false' })))

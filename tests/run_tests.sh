@@ -40,7 +40,7 @@ CXXFLAGS=(
 if [[ "${USLICE_SANITIZERS:-0}" == "1" ]]; then
     CXXFLAGS+=(
         -fno-omit-frame-pointer
-        -fsanitize=address,undefined
+        "-fsanitize=address,undefined"
     )
 fi
 

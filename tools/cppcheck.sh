@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 
 SOURCES=(tasks time uSliceCore.h)
 COMMON_FLAGS=(
-    --enable=warning,style,performance,portability
+    "--enable=warning,style,performance,portability"
     --inconclusive
     --std=c++20
     -D__cpp_consteval=201811L

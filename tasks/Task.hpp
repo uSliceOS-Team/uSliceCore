@@ -16,6 +16,18 @@ namespace uslice {
 
 class Task;
 
+namespace detail {
+
+template <void (*Loop)(void*, Task*)> struct TaskLoopValidator {
+    static constexpr bool valid = true;
+};
+
+template <> struct TaskLoopValidator<nullptr> {
+    static constexpr bool valid = false;
+};
+
+} // namespace detail
+
 enum class TaskState : std::uint8_t {
     STOPPED = 0,
     SYNC, // manual start accepted; one synchronizing scheduler turn
@@ -32,9 +44,8 @@ public:
     using case_t = std::uint32_t;
     using Handler = void (*)(void*, Task*);
 
-    struct Definition {
+    template <Handler Loop> struct Definition {
         Handler entry;
-        Handler loop;
         Handler stop;
         void* context;
         bool autostart;
@@ -56,13 +67,12 @@ private:
     void* context_;
 
 public:
-    consteval explicit Task(Definition definition) noexcept
+    template <Handler Loop>
+    consteval explicit Task(Definition<Loop> definition) noexcept
         : state_(definition.autostart ? TaskState::ENTRY : TaskState::STOPPED),
-          entry_(definition.entry),
-          // cppcheck-suppress nullPointerRedundantCheck
-          loop_(definition.loop), stop_(definition.stop),
+          entry_(definition.entry), loop_(Loop), stop_(definition.stop),
           context_(definition.context) {
-        if (loop_ == nullptr) {
+        if constexpr (!detail::TaskLoopValidator<Loop>::valid) {
             rejectMissingLoopHandler();
         }
     }

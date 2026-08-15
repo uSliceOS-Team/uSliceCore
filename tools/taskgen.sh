@@ -221,9 +221,8 @@ render_definitions() {
         task=${tasks[task_index]}
         stem=$(type_stem "$task")
         printf 'constinit %sContext %sContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$stem" "$task"
-        printf 'constinit ::uslice::Task %s{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$task"
+        printf 'constinit ::uslice::Task %s{::uslice::Task::Definition<::Loop_%s>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$task" "$task"
         printf '    .entry = ::Entry_%s,\n' "$task"
-        printf '    .loop = ::Loop_%s,\n' "$task"
         printf '    .stop = ::Stop_%s,\n' "$task"
         printf '    .context = &%sContext,\n' "$task"
         printf '    .autostart = %s,\n' "${autostarts[task_index]}"
@@ -295,4 +294,3 @@ update_file() {
 update_file "$api_path" render_api
 update_file "$manager_path" render_manager
 update_file "$definitions_path" render_definitions
-

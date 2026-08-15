@@ -5,9 +5,8 @@
 
 #include "tasks/Task.hpp"
 
-constinit ::uslice::Task invalidTask{::uslice::Task::Definition{
+constinit ::uslice::Task invalidTask{::uslice::Task::Definition<nullptr>{
     .entry = nullptr,
-    .loop = nullptr,
     .stop = nullptr,
     .context = nullptr,
     .autostart = false,

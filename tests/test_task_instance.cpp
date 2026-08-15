@@ -24,9 +24,8 @@ TASK_STOP(motor) {}
 
 TEST_TASK(motor, MotorCtx, true);
 constinit MotorCtx motor_rightContext{};
-constinit ::uslice::Task motor_right{::uslice::Task::Definition{
+constinit ::uslice::Task motor_right{::uslice::Task::Definition<::Loop_motor>{
     .entry = ::Entry_motor,
-    .loop = ::Loop_motor,
     .stop = ::Stop_motor,
     .context = &motor_rightContext,
     .autostart = false,

@@ -5,14 +5,9 @@
  * "Autostart" workflow in docs/TECHNICAL_REFERENCE.md.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include "tasks/osTaskMgmtMacros.hpp"
+#include "test_task_fixture.hpp"
 #include "test_scheduler_helpers.hpp"
 #include "test_framework.hpp"
-
-CASES(RUN);
 
 struct AutoCtx {
     bool entryRan = false;
@@ -26,16 +21,14 @@ TASK_ENTRY(autoTask) {
 
 TASK_LOOP(autoTask) {
     CTX(AutoCtx);
-    SWITCH
-    CASE(RUN) : localTask->loopCount++;
-    break;
-    SWITCH_END
+    localTask->loopCount++;
 }
 
 TASK_STOP(autoTask) {}
 
-ADD_TASK_AND_START(autoTask, AutoCtx);
-DECLARE_TASK(autoTask);
+TEST_TASK(autoTask, AutoCtx, true);
+constexpr ::uslice::TaskLink autoTaskLink{&autoTask, nullptr};
+constinit const ::uslice::TaskRegistry testRegistry{&autoTaskLink};
 
 int main() {
     // Turn 0: Entry runs. Loop has not run yet.

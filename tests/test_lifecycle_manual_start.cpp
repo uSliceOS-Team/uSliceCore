@@ -1,18 +1,13 @@
 /**
  * @file test_lifecycle_manual_start.cpp
- * @brief Manual start timing: Stopped -> Guard (inert) -> Entry -> Loop.
+ * @brief Manual start timing: Stopped -> Sync (inert) -> Entry -> Loop.
  * One extra buffer turn compared to autostart -- see the "Manual/delayed
  * start" workflow in docs/TECHNICAL_REFERENCE.md.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include "tasks/osTaskMgmtMacros.hpp"
+#include "test_task_fixture.hpp"
 #include "test_scheduler_helpers.hpp"
 #include "test_framework.hpp"
-
-CASES(RUN);
 
 struct ManualCtx {
     bool entryRan = false;
@@ -26,16 +21,14 @@ TASK_ENTRY(manualTask) {
 
 TASK_LOOP(manualTask) {
     CTX(ManualCtx);
-    SWITCH
-    CASE(RUN) : localTask->loopCount++;
-    break;
-    SWITCH_END
+    localTask->loopCount++;
 }
 
 TASK_STOP(manualTask) {}
 
-ADD_TASK(manualTask, ManualCtx); // NOT autostart
-DECLARE_TASK(manualTask);
+TEST_TASK(manualTask, ManualCtx, false);
+constexpr ::uslice::TaskLink manualTaskLink{&manualTask, nullptr};
+constinit const ::uslice::TaskRegistry testRegistry{&manualTaskLink};
 
 int main() {
     // Before START_TASK: fully stopped, no handler has run, and running
@@ -48,7 +41,7 @@ int main() {
 
     START_TASK(manualTask);
 
-    // Turn after START_TASK: Guard, inert. Task reports running (state is
+    // Turn after START_TASK: Sync, inert. Task reports running (state is
     // no longer Stopped) but Entry has not run yet.
     RUN_PASSES(1);
     CHECK(TASK_RUNNING(manualTask));

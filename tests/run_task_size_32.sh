@@ -13,7 +13,7 @@ SOURCE="$SCRIPT_DIR/test_task_size_32.cpp"
 mkdir -p "$BUILD_DIR"
 
 COMMON_FLAGS=(
-    -std=c++17
+    -std=gnu++20
     -ffreestanding
     -fno-exceptions
     -fno-rtti
@@ -21,6 +21,11 @@ COMMON_FLAGS=(
     -Wall
     -Wextra
     -Werror
+    -Wpedantic
+    -Wconversion
+    -Wsign-conversion
+    -Wshadow
+    -Wundef
     -Wno-unused-private-field
     -I"$STD_SHIM"
     -I"$REPO_ROOT"
@@ -39,4 +44,4 @@ echo "=== Task size: STM32F1/CH32F103 class (Cortex-M3 / ARM EABI) ==="
 "$CXX" --target=armv7m-none-eabi -mcpu=cortex-m3 -mthumb \
     "${COMMON_FLAGS[@]}" "$SOURCE" -o "$BUILD_DIR/task-arm32.o"
 
-echo "Task is 36 bytes on all three checked 32-bit targets"
+echo "Task is 24 bytes on all three checked 32-bit targets"

@@ -4,14 +4,9 @@
  * lifecycle commands as control flow.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskMgmtMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
+#include "test_task_fixture.hpp"
 #include "test_framework.hpp"
 #include "test_scheduler_helpers.hpp"
-
-CASES(RESTART_RUN);
 
 struct RestartCtx {
     int entryCount = 0;
@@ -26,10 +21,7 @@ TASK_ENTRY(restartable) {
 
 TASK_LOOP(restartable) {
     CTX(RestartCtx);
-    SWITCH
-    CASE(RESTART_RUN) : localTask->loopCount++;
-    break;
-    SWITCH_END
+    localTask->loopCount++;
 }
 
 TASK_STOP(restartable) {
@@ -37,8 +29,9 @@ TASK_STOP(restartable) {
     localTask->stopCount++;
 }
 
-ADD_TASK_AND_START(restartable, RestartCtx);
-DECLARE_TASK(restartable);
+TEST_TASK(restartable, RestartCtx, true);
+constexpr ::uslice::TaskLink restartableLink{&restartable, nullptr};
+constinit const ::uslice::TaskRegistry testRegistry{&restartableLink};
 
 int main() {
     RUN_PASSES(1); // Entry
@@ -55,7 +48,7 @@ int main() {
     CHECK(!TASK_RUNNING(restartable));
 
     START_TASK(restartable); // legal only after fully Stopped
-    RUN_PASSES(1);           // Guard (inert)
+    RUN_PASSES(1);           // Sync (inert)
     CHECK_EQ(ctx.entryCount, 1);
     CHECK_EQ(ctx.loopCount, 1);
     RUN_PASSES(1); // Entry

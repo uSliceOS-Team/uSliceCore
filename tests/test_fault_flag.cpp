@@ -12,16 +12,11 @@
  *    CASE, the documented correct pattern.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include "tasks/osTaskMgmtMacros.hpp"
+#include "test_task_fixture.hpp"
 #include "test_scheduler_helpers.hpp"
 #include "test_framework.hpp"
 
 // --- naiveFaulter: the trap ---
-
-CASES(NAIVE_CHECK);
 
 struct NaiveCtx {
     int loopCount = 0;
@@ -31,20 +26,15 @@ TASK_ENTRY(naiveFaulter) {}
 
 TASK_LOOP(naiveFaulter) {
     CTX(NaiveCtx);
-    SWITCH
-    CASE(NAIVE_CHECK) : localTask->loopCount++;
-    RAISE_FAULT(); // no GOTO_CASE, no STOP_SELF -- lands right back here
-    SWITCH_END
+    localTask->loopCount++;
+    RAISE_FAULT(); // no lifecycle or control-flow effect
 }
 
 TASK_STOP(naiveFaulter) {}
 
-ADD_TASK_AND_START(naiveFaulter, NaiveCtx);
-DECLARE_TASK(naiveFaulter);
+TEST_TASK(naiveFaulter, NaiveCtx, true);
 
 // --- safeFaulter: the documented correct pattern ---
-
-CASES(SAFE_READ, SAFE_CHECK);
 
 struct SafeCtx {
     int reading = 0;
@@ -53,22 +43,29 @@ struct SafeCtx {
 TASK_ENTRY(safeFaulter) {}
 
 TASK_LOOP(safeFaulter) {
+    TASK_STATES(READ, CHECK);
     CTX(SafeCtx);
-    SWITCH
-    CASE(SAFE_READ) : localTask->reading++;
-    GOTO_CASE(SAFE_CHECK);
-    CASE(SAFE_CHECK) : if (localTask->reading >= 2) {
-        STOP_SELF();
-        RAISE_FAULT();
+    switch (TASK_STATE()) {
+        case READ:
+            localTask->reading++;
+            GOTO_CASE(CHECK);
+        case CHECK:
+            if (localTask->reading >= 2) {
+                STOP_SELF();
+                RAISE_FAULT();
+                return;
+            }
+            GOTO_CASE(READ);
     }
-    GOTO_CASE(SAFE_READ);
-    SWITCH_END
 }
 
 TASK_STOP(safeFaulter) {}
 
-ADD_TASK_AND_START(safeFaulter, SafeCtx);
-DECLARE_TASK(safeFaulter);
+TEST_TASK(safeFaulter, SafeCtx, true);
+
+constexpr ::uslice::TaskLink safeFaulterLink{&safeFaulter, nullptr};
+constexpr ::uslice::TaskLink naiveFaulterLink{&naiveFaulter, &safeFaulterLink};
+constinit const ::uslice::TaskRegistry testRegistry{&naiveFaulterLink};
 
 int main() {
     RUN_PASSES(1); // Entry for both

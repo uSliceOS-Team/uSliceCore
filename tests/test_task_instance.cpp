@@ -1,18 +1,13 @@
 /**
  * @file test_task_instance.cpp
- * @brief TASK_INSTANCE reuses one Entry/Loop/Stop triple across multiple
+ * @brief One Entry/Loop/Stop handler triple is reused by multiple tasks.
  * Task objects, each with its own context -- e.g. one motor-control
  * function driving several motors.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include "tasks/osTaskMgmtMacros.hpp"
+#include "test_task_fixture.hpp"
 #include "test_scheduler_helpers.hpp"
 #include "test_framework.hpp"
-
-CASES(SPIN);
 
 struct MotorCtx {
     int speed = 0;
@@ -22,31 +17,34 @@ TASK_ENTRY(motor) {}
 
 TASK_LOOP(motor) {
     CTX(MotorCtx);
-    SWITCH
-    CASE(SPIN) : localTask->speed++;
-    break;
-    SWITCH_END
+    localTask->speed++;
 }
 
 TASK_STOP(motor) {}
 
-ADD_TASK_AND_START(motor, MotorCtx);
-TASK_INSTANCE(motor_right, motor,
-              MotorCtx); // shares Entry_motor/Loop_motor/Stop_motor
-
-DECLARE_TASK(motor);
-DECLARE_TASK(motor_right);
+TEST_TASK(motor, MotorCtx, true);
+constinit MotorCtx motor_rightContext{};
+constinit ::uslice::Task motor_right{::uslice::Task::Definition{
+    .entry = ::Entry_motor,
+    .loop = ::Loop_motor,
+    .stop = ::Stop_motor,
+    .context = &motor_rightContext,
+    .autostart = false,
+}};
+constexpr ::uslice::TaskLink motorRightLink{&motor_right, nullptr};
+constexpr ::uslice::TaskLink motorLink{&motor, &motorRightLink};
+constinit const ::uslice::TaskRegistry testRegistry{&motorLink};
 
 int main() {
-    // motor_right was registered via TASK_INSTANCE with autostart=false
-    // (REGISTER_TASK's default), so it needs an explicit start.
+    // motor_right is configured with autostart=false, so it needs an
+    // explicit start.
     CHECK(TASK_RUNNING(motor));
     CHECK(!TASK_RUNNING(motor_right));
     START_TASK(motor_right);
 
-    RUN_PASSES(1); // motor: Entry.        motor_right: Guard (inert)
+    RUN_PASSES(1); // motor: Entry.        motor_right: Sync (inert)
     RUN_PASSES(1); // motor: first Loop.   motor_right: Entry (staggered by
-                   // one pass -- motor_right went through Guard first,
+                   // one pass -- motor_right went through Sync first,
                    // motor didn't need to)
 
     // Give motor_right's context a different starting point to prove the

@@ -1,0 +1,10 @@
+# Task order is scheduler order. Names imply Context and handler names:
+# motor -> MotorContext, Entry_motor, Loop_motor, Stop_motor.
+namespace example::tasks
+main "main.cpp"
+definitions "TaskDefinitions.hpp"
+
+task ledBlinker autostart
+task motor
+task sensorMonitor autostart
+task logic autostart

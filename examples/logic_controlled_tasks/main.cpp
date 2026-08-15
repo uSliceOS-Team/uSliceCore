@@ -5,43 +5,41 @@
  * uSliceCore contains no target-specific code within its supported 32-bit
  * scope and has no build system of its own;
  * on real hardware you would:
- *   1. Wire a 1 kHz hardware timer interrupt to osTickISR() (or
- *      OS::Time::Core::onTickISR() from C++), and
- *   2. Call osTaskManager() once from main() -- it runs the supercycle
- *      forever and never returns.
+ *   1. Wire a 1 kHz hardware timer interrupt to the time module, and
+ *   2. Call the generated usliceTaskManager() from the selected main
+ *      language; it runs the application registry's supercycle forever.
  *
  * Neither of those fits a runnable console demo (an infinite loop with
  * no output would just hang), so this file does NOT call
- * osTaskManager(). Instead it walks the task list by hand, exactly the
- * way osTaskManager() does internally (see tasks/osTaskManager.cpp),
- * for a fixed number of passes so you can see the output and the
- * program can exit. This unrolling is specific to this demo, not part
- * of the library.
+ * the infinite manager. It invokes the bounded C++ manager-pass overload for
+ * a fixed number of passes so the program can print its final state and exit.
  */
 
-#include "tasks/osTaskCore.hpp"
-#include "Registrations.hpp"
-#include <cstdio>
+#include "generated/Tasks.generated.hpp"
+#include "generated/Manager.generated.hpp"
+#include <iostream>
 
 int main(void) {
-    printf("=== uSliceCore example: logic-controlled tasks (host simulation) "
-           "===\n\n");
+    std::cout << std::boolalpha
+              << "=== uSliceCore example: logic-controlled tasks (host "
+                 "simulation) ===\n\n";
 
     const int PASSES = 12;
     for (int pass = 0; pass < PASSES; pass++) {
-        printf("--- pass %d ---\n", pass);
-        Task* t = Task::getHead();
-        while (t) {
-            t = t->execute();
-        }
+        std::cout << "--- pass " << pass << " ---\n";
+        usliceTaskManagerPass();
     }
 
-    printf("\n=== final state ===\n");
-    printf("ledBlinker   running=%d\n", TASK_RUNNING(ledBlinker));
-    printf("motor        running=%d actualSpeed=%d\n", TASK_RUNNING(motor),
-           TASK_CONTEXT(motor, MotorCtx).actualSpeed);
-    printf("sensorMonitor running=%d faulted=%d\n", TASK_RUNNING(sensorMonitor),
-           TASK_FAULTED(sensorMonitor));
+    std::cout << "\n=== final state ===\n"
+              << "ledBlinker   running="
+              << example::tasks::ledBlinker.isRunning() << '\n'
+              << "motor        running=" << example::tasks::motor.isRunning()
+              << " actualSpeed=" << example::tasks::motorContext.actualSpeed
+              << '\n'
+              << "sensorMonitor running="
+              << example::tasks::sensorMonitor.isRunning()
+              << " faulted=" << example::tasks::sensorMonitor.isFaulted()
+              << '\n';
 
     return 0;
 }

@@ -9,58 +9,52 @@
  *  - STOP_SELF(): the task decides on its own that it's done and stops
  *    itself, without any external Logic call.
  *
- * This context is never touched from outside this file, so it stays
- * fully private -- no separate header needed for it (contrast with
- * Motor.cpp, whose context Logic configures externally).
+ * Its context type follows the generated naming convention and is declared in
+ * TaskDefinitions.hpp with the other application context types.
  */
 
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include <cstdio>
+#include "TaskDefinitions.hpp"
+#include "generated/Tasks.generated.hpp"
+#include "tasks/Macros.hpp"
+#include <iostream>
 
 // Host-side stand-ins for real GPIO calls -- see main.cpp for why this
 // example doesn't touch real hardware.
-#define GPIO_LED 0
-static void GPIO_Init(int pin) { printf("  (GPIO_Init(%d))\n", pin); }
-static void GPIO_Write(int pin, int on) {
-    printf("  (GPIO_Write(%d, %d))\n", pin, on);
+namespace {
+constexpr int GPIO_LED = 0;
+
+void GPIO_Init(int pin) { std::cout << "  (GPIO_Init(" << pin << "))\n"; }
+void GPIO_Write(int pin, int on) {
+    std::cout << "  (GPIO_Write(" << pin << ", " << on << "))\n";
 }
-
-CASES(BLINK, DONE);
-
-struct LedBlinkerCtx {
-    int blinksRemaining = 5;
-};
+} // namespace
 
 TASK_ENTRY(ledBlinker) {
-    printf("[ledBlinker] ENTRY handler: one-time init\n");
+    std::cout << "[ledBlinker] ENTRY handler: one-time init\n";
     GPIO_Init(GPIO_LED);
 }
 
 TASK_LOOP(ledBlinker) {
-    CTX(LedBlinkerCtx);
-    SWITCH
-    CASE(BLINK)
-        : printf("[ledBlinker] blink (%d remaining)\n",
-                 localTask->blinksRemaining);
-    localTask->blinksRemaining--;
-    if (localTask->blinksRemaining <= 0) {
-        GOTO_CASE(DONE);
-    }
-    break;
+    TASK_STATES(BLINK, DONE);
+    CTX(LedBlinkerContext);
+    switch (TASK_STATE()) {
+        case BLINK:
+            std::cout << "[ledBlinker] blink (" << localTask->blinksRemaining
+                      << " remaining)\n";
+            localTask->blinksRemaining--;
+            if (localTask->blinksRemaining <= 0) {
+                GOTO_CASE(DONE);
+            }
+            break;
 
-    CASE(DONE) : printf("[ledBlinker] done, stopping myself\n");
-    STOP_SELF();
-    break;
-    SWITCH_END
+        case DONE:
+            std::cout << "[ledBlinker] done, stopping myself\n";
+            STOP_SELF();
+            break;
+    }
 }
 
 TASK_STOP(ledBlinker) {
-    printf("[ledBlinker] stopped (cleanup ran)\n");
+    std::cout << "[ledBlinker] stopped (cleanup ran)\n";
     GPIO_Write(GPIO_LED, 0);
 }
-
-// Autostart: this task doesn't need Logic to kick it off. Its very first
-// scheduler turn already runs TASK_ENTRY above -- no wasted pass before
-// initialization, unlike a manually started task (see Motor.cpp).
-ADD_TASK_AND_START(ledBlinker, LedBlinkerCtx);

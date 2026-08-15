@@ -13,40 +13,38 @@
  * CASE where you raise the fault, if that's what you actually want.
  */
 
-#include "tasks/osTaskMacros.hpp"
-#include "tasks/osTaskRegMacros.hpp"
-#include <cstdio>
-
-CASES(READ, CHECK);
-
-struct SensorCtx {
-    int reading = 0;
-};
+#include "TaskDefinitions.hpp"
+#include "generated/Tasks.generated.hpp"
+#include "tasks/Macros.hpp"
+#include <iostream>
 
 TASK_ENTRY(sensorMonitor) {
-    printf("[sensorMonitor] ENTRY handler: sensor warm-up would go here\n");
+    std::cout
+        << "[sensorMonitor] ENTRY handler: sensor warm-up would go here\n";
 }
 
 TASK_LOOP(sensorMonitor) {
-    CTX(SensorCtx);
-    SWITCH
-    CASE(READ) : localTask->reading++; // stand-in for ADC_Read()
-    GOTO_CASE(CHECK);
+    TASK_STATES(READ, CHECK);
+    CTX(SensorMonitorContext);
+    switch (TASK_STATE()) {
+        case READ:
+            localTask->reading++; // stand-in for ADC_Read()
+            GOTO_CASE(CHECK);
 
-    CASE(CHECK) : if (localTask->reading >= 4) {
-        printf("[sensorMonitor] reading %d out of range -- flagging and "
-               "stopping\n",
-               localTask->reading);
-        STOP_SELF();   // decide what happens *before* the jump below
-        RAISE_FAULT(); // sets the flag and exits the switch; order
-                       // between these two calls doesn't matter,
-                       // both are plain function calls
+        case CHECK:
+            if (localTask->reading >= 4) {
+                std::cout << "[sensorMonitor] reading " << localTask->reading
+                          << " out of range -- flagging and stopping\n";
+                RAISE_FAULT(); // flag only; the return is explicit policy
+                STOP_SELF();   // decide what happens *before* the return below
+                return;
+            }
+            std::cout << "[sensorMonitor] reading " << localTask->reading
+                      << " ok\n";
+            GOTO_CASE(READ);
     }
-    printf("[sensorMonitor] reading %d ok\n", localTask->reading);
-    GOTO_CASE(READ);
-    SWITCH_END
 }
 
-TASK_STOP(sensorMonitor) { printf("[sensorMonitor] stopped (cleanup ran)\n"); }
-
-ADD_TASK_AND_START(sensorMonitor, SensorCtx);
+TASK_STOP(sensorMonitor) {
+    std::cout << "[sensorMonitor] stopped (cleanup ran)\n";
+}

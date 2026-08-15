@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+# Generate one application task registry and its main-specific manager API.
+# The PowerShell implementation in taskgen.ps1 emits the same files.
+
+set -euo pipefail
+shopt -s extglob
+
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  taskgen.sh INPUT --api PATH --definitions PATH --manager PATH
+              [--main PATH] [--api-include NAME] [--manager-include NAME]
+              [--check]
+
+The main file is taken from --main, then from main "..." in INPUT, and
+finally from a unique main.c or main.cpp next to INPUT.
+EOF
+}
+
+fail() {
+    printf 'taskgen: %s\n' "$*" >&2
+    exit 2
+}
+
+input_path=''
+api_path=''
+definitions_path=''
+manager_path=''
+main_override=''
+api_include=''
+manager_include=''
+check=0
+
+if (($# == 0)); then
+    usage
+    exit 2
+fi
+
+input_path=$1
+shift
+while (($# > 0)); do
+    case $1 in
+        --api|--definitions|--manager|--main|--api-include|--manager-include)
+            (($# >= 2)) || fail "missing value for $1"
+            case $1 in
+                --api) api_path=$2 ;;
+                --definitions) definitions_path=$2 ;;
+                --manager) manager_path=$2 ;;
+                --main) main_override=$2 ;;
+                --api-include) api_include=$2 ;;
+                --manager-include) manager_include=$2 ;;
+            esac
+            shift 2
+            ;;
+        --check)
+            check=1
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            usage
+            fail "unknown argument '$1'"
+            ;;
+    esac
+done
+
+[[ -n $api_path ]] || fail '--api is required'
+[[ -n $definitions_path ]] || fail '--definitions is required'
+[[ -n $manager_path ]] || fail '--manager is required'
+[[ -f $input_path ]] || fail "input file not found: $input_path"
+
+source_name=${input_path##*/}
+input_dir=$(cd "$(dirname "$input_path")" && pwd)
+
+namespace=''
+main_from_dsl=''
+definitions=''
+declare -a tasks=()
+declare -a autostarts=()
+
+trim() {
+    local value=$1
+    value=${value##+([[:space:]])}
+    value=${value%%+([[:space:]])}
+    printf '%s' "$value"
+}
+
+line_number=0
+while IFS= read -r raw_line || [[ -n $raw_line ]]; do
+    line_number=$((line_number + 1))
+    line=${raw_line%%#*}
+    line=$(trim "$line")
+    [[ -n $line ]] || continue
+
+    if [[ $line =~ ^namespace[[:space:]]+(.+)$ ]]; then
+        [[ -z $namespace ]] || fail "$input_path:$line_number: namespace may be declared only once"
+        namespace=$(trim "${BASH_REMATCH[1]}")
+        [[ $namespace =~ ^(::)?[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$ ]] ||
+            fail "$input_path:$line_number: invalid namespace '$namespace'"
+    elif [[ $line =~ ^main[[:space:]]+\"([^\"]+)\"$ ]]; then
+        [[ -z $main_from_dsl ]] || fail "$input_path:$line_number: main may be declared only once"
+        main_from_dsl=${BASH_REMATCH[1]}
+    elif [[ $line =~ ^definitions[[:space:]]+\"([^\"]+)\"$ ]]; then
+        [[ -z $definitions ]] || fail "$input_path:$line_number: definitions may be declared only once"
+        definitions=${BASH_REMATCH[1]}
+    elif [[ $line =~ ^task[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)([[:space:]]+autostart)?$ ]]; then
+        task_name=${BASH_REMATCH[1]}
+        for existing in "${tasks[@]}"; do
+            [[ $existing != "$task_name" ]] ||
+                fail "$input_path:$line_number: duplicate task '$task_name'"
+        done
+        tasks+=("$task_name")
+        if [[ -n ${BASH_REMATCH[2]} ]]; then
+            autostarts+=(true)
+        else
+            autostarts+=(false)
+        fi
+    else
+        fail "$input_path:$line_number: unexpected statement '$line'"
+    fi
+done < "$input_path"
+
+[[ -n $namespace ]] || fail "$input_path: namespace is required"
+[[ -n $definitions ]] || fail "$input_path: definitions header is required"
+
+main_path=$main_override
+if [[ -z $main_path ]]; then
+    main_path=$main_from_dsl
+fi
+if [[ -z $main_path ]]; then
+    declare -a candidates=()
+    [[ -f "$input_dir/main.c" ]] && candidates+=("$input_dir/main.c")
+    [[ -f "$input_dir/main.cpp" ]] && candidates+=("$input_dir/main.cpp")
+    ((${#candidates[@]} == 1)) || {
+        if ((${#candidates[@]} == 0)); then
+            fail "$input_path: main file was not found; use --main or main \"...\""
+        fi
+        fail "$input_path: both main.c and main.cpp exist; use --main or main \"...\""
+    }
+    main_path=${candidates[0]}
+elif [[ $main_path != /* ]]; then
+    main_path="$input_dir/$main_path"
+fi
+
+[[ -f $main_path ]] || fail "main file not found: $main_path"
+main_name=${main_path##*/}
+case ${main_name,,} in
+    *.c) mode=c ;;
+    *.cc|*.cpp|*.cxx) mode=cpp ;;
+    *) fail "unsupported main extension in '$main_name'; expected .c or .cpp" ;;
+esac
+
+api_include=${api_include:-${api_path##*/}}
+manager_include=${manager_include:-${manager_path##*/}}
+cpp_namespace=${namespace#::}
+
+type_stem() {
+    local task=$1
+    local first=${task:0:1}
+    printf '%s%s' "${first^^}" "${task:1}"
+}
+
+render_api() {
+    printf '%s\n' '// Generated by tools/taskgen.sh or tools/taskgen.ps1; do not edit.'
+    printf '// Source: %s\n' "$source_name"
+    printf '// Main: %s (%s)\n' "$main_name" "$mode"
+    printf '%s\n\n' '#pragma once'
+    printf '%s\n' '#include "tasks/Task.hpp"'
+    printf '#include "%s"\n' "$definitions"
+    for task in "${tasks[@]}"; do
+        printf '\nvoid Entry_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
+        printf 'void Loop_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
+        printf 'void Stop_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
+    done
+    printf '\nnamespace %s {\n\n' "$cpp_namespace"
+    for task in "${tasks[@]}"; do
+        stem=$(type_stem "$task")
+        printf 'extern %sContext %sContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$stem" "$task"
+        printf 'extern ::uslice::Task %s; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n\n' "$task"
+    done
+    printf '} // namespace %s\n' "$cpp_namespace"
+}
+
+render_manager() {
+    if [[ $mode == c ]]; then
+        printf '%s\n' '/* Generated by tools/taskgen.sh or tools/taskgen.ps1; do not edit. */'
+        printf '/* Source: %s */\n' "$source_name"
+        printf '/* Main: %s (C) */\n' "$main_name"
+        printf '%s\n\n' '#pragma once'
+        printf '%s\n' '#ifdef __cplusplus'
+        printf '%s\n' 'extern "C" {'
+        printf '%s\n' '#endif'
+        printf '\nvoid usliceTaskManager(void);\nvoid usliceTaskManagerPass(void);\n'
+        printf '\n%s\n' '#ifdef __cplusplus'
+        printf '%s\n' '}'
+        printf '%s\n' '#endif'
+    else
+        printf '%s\n' '// Generated by tools/taskgen.sh or tools/taskgen.ps1; do not edit.'
+        printf '// Source: %s\n' "$source_name"
+        printf '// Main: %s (C++)\n' "$main_name"
+        printf '%s\n\n' '#pragma once'
+        printf '%s\n' 'void usliceTaskManager(void);'
+        printf '%s\n' 'void usliceTaskManagerPass(void);'
+    fi
+}
+
+render_definitions() {
+    printf '%s\n' '// Generated by tools/taskgen.sh or tools/taskgen.ps1; compile this translation unit.'
+    printf '// Source: %s\n' "$source_name"
+    printf '// Main: %s (%s)\n' "$main_name" "$mode"
+    printf '#include "%s"\n' "$api_include"
+    printf '#include "%s"\n' "$manager_include"
+    printf '#include "tasks/Task.hpp"\n'
+    printf '#include "%s"\n\n' "$definitions"
+
+    printf 'namespace %s {\n\n' "$cpp_namespace"
+    for task_index in "${!tasks[@]}"; do
+        task=${tasks[task_index]}
+        stem=$(type_stem "$task")
+        printf 'constinit %sContext %sContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$stem" "$task"
+        printf 'constinit ::uslice::Task %s{::uslice::Task::Definition{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$task"
+        printf '    .entry = ::Entry_%s,\n' "$task"
+        printf '    .loop = ::Loop_%s,\n' "$task"
+        printf '    .stop = ::Stop_%s,\n' "$task"
+        printf '    .context = &%sContext,\n' "$task"
+        printf '    .autostart = %s,\n' "${autostarts[task_index]}"
+        printf '}};\n\n'
+    done
+    printf '} // namespace %s\n\n' "$cpp_namespace"
+
+    printf 'namespace %s::generated_detail {\n' "$cpp_namespace"
+    printf '\n// Nodes are declared tail-first; traversal remains in DSL order.\n'
+    if ((${#tasks[@]} == 0)); then
+        printf '// Scheduler order: (empty)\n'
+    else
+        scheduler_order=$(IFS=' -> '; printf '%s' "${tasks[*]}")
+        printf '// Scheduler order: %s\n' "$scheduler_order"
+    fi
+    next_link='nullptr'
+    for ((task_index=${#tasks[@]} - 1; task_index >= 0; task_index--)); do
+        task=${tasks[task_index]}
+        link_name="taskRegistry_${task}Link"
+        printf 'constexpr ::uslice::TaskLink %s{&%s::%s, %s};\n' \
+            "$link_name" "$cpp_namespace" "$task" "$next_link"
+        next_link="&$link_name"
+    done
+    printf '\n} // namespace %s::generated_detail\n\n' "$cpp_namespace"
+
+    if [[ $next_link == 'nullptr' ]]; then
+        registry_head='nullptr'
+    else
+        registry_head="&${cpp_namespace}::generated_detail::${next_link#&}"
+    fi
+    printf 'namespace {\nconstinit const ::uslice::TaskRegistry taskRegistry{%s};\n}\n\n' "$registry_head"
+
+    if [[ $mode == c ]]; then
+        printf 'extern "C" void usliceTaskManagerPass(void) {\n'
+    else
+        printf 'void usliceTaskManagerPass(void) {\n'
+    fi
+    printf '    taskRegistry.executePass();\n}\n\n'
+
+    if [[ $mode == c ]]; then
+        printf 'extern "C" void usliceTaskManager(void) {\n'
+    else
+        printf 'void usliceTaskManager(void) {\n'
+    fi
+    printf '    while (true) {\n        taskRegistry.executePass();\n    }\n}\n'
+}
+
+update_file() {
+    local path=$1
+    local renderer=$2
+    local directory
+    local temporary
+    directory=$(dirname "$path")
+    mkdir -p "$directory"
+    temporary=$(mktemp "$directory/.taskgen.XXXXXX")
+    "$renderer" > "$temporary"
+    if [[ -f $path ]] && cmp -s "$temporary" "$path"; then
+        rm -f "$temporary"
+        return 0
+    fi
+    if ((check)); then
+        printf 'outdated generated file: %s\n' "$path" >&2
+        rm -f "$temporary"
+        return 1
+    fi
+    mv "$temporary" "$path"
+}
+
+update_file "$api_path" render_api
+update_file "$manager_path" render_manager
+update_file "$definitions_path" render_definitions
+

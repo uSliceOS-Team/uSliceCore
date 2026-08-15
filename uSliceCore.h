@@ -1,22 +1,18 @@
 /**
  * @file uSliceCore.h
- * @brief Umbrella header: both C-callable entry points in one include.
+ * @brief Umbrella header for the C-callable scheduler and tick entry points.
  *
- * osTaskManager() (tasks/osTaskManager.h) and osTickISR()
- * (time/osTickISR.h) are the only two calls exposed with C linkage;
- * everything else (TASK, CASES, ADD_TASK, ...) is C++-only and lives
- * under tasks/ and time/.
+ * The task manager declaration is generated for the application's main file.
+ * Include that generated manager header together with this umbrella header.
+ * osTickISR() (time/osTickISR.h) is the library-wide C-callable entry point.
  *
  * This umbrella is for user code (main.c / main.cpp) only. Internal
- * library files never include it: tasks/osTaskManager.cpp includes
- * tasks/osTaskManager.h directly, time/osTickISR.cpp includes
- * time/osTickISR.h directly, each file pulling in only the one
- * declaration it actually implements.
+ * library files never include it; time/osTickISR.cpp includes
+ * time/osTickISR.h directly.
  *
  * @author uSliceCore Team
  */
 
 #pragma once
 
-#include "tasks/osTaskManager.h"
 #include "time/osTickISR.h"

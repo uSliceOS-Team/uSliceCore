@@ -1,7 +1,6 @@
 /**
  * @file test_restart_after_cleanup.cpp
- * @brief Supported stop-wait-start lifecycle without relying on rejected
- * lifecycle commands as control flow.
+ * @brief Restart contract, including start during End and stop during Sync.
  */
 
 #include "test_task_fixture.hpp"
@@ -9,50 +8,62 @@
 #include "test_scheduler_helpers.hpp"
 
 struct RestartCtx {
-    int entryCount = 0;
     int loopCount = 0;
     int stopCount = 0;
 };
 
-TASK_ENTRY(restartable) {
-    CTX(RestartCtx);
-    localTask->entryCount++;
+void Loop_restartable(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<RestartCtx*>(rawCtx_);
+    switch (self->currentCase()) {
+        case 0:
+            localTask->loopCount++;
+            break;
+    }
 }
 
-TASK_LOOP(restartable) {
-    CTX(RestartCtx);
-    localTask->loopCount++;
-}
-
-TASK_STOP(restartable) {
-    CTX(RestartCtx);
+void Stop_restartable(void* rawCtx_, [[maybe_unused]] ::uslice::Task* self) {
+    auto* localTask = static_cast<RestartCtx*>(rawCtx_);
     localTask->stopCount++;
 }
 
-TEST_TASK(restartable, RestartCtx, true);
+constexpr ::uslice::Task::Program restartableProgram{
+    .loop = &Loop_restartable,
+    .stop = &Stop_restartable,
+    .caseCount = 1,
+};
+
+constinit RestartCtx restartableContext{};
+constinit ::uslice::Task restartable{
+    ::uslice::Task::Definition<&restartableProgram>{
+        .context = &restartableContext,
+        .autostart = true,
+    }};
 constexpr ::uslice::TaskLink restartableLink{&restartable, nullptr};
 constinit const ::uslice::TaskRegistry testRegistry{&restartableLink};
 
 int main() {
-    RUN_PASSES(1); // Entry
     RUN_PASSES(1); // Loop
 
-    RestartCtx& ctx = TASK_CONTEXT(restartable, RestartCtx);
-    CHECK_EQ(ctx.entryCount, 1);
+    RestartCtx& ctx = restartableContext;
     CHECK_EQ(ctx.loopCount, 1);
 
-    STOP_TASK(restartable); // legal in Loop
-    CHECK(TASK_RUNNING(restartable));
-    RUN_PASSES(1); // cleanup
+    restartable.stop();
+    CHECK(restartable.isRunning());
+    CHECK(!restartable.start()); // End is the only rejected start state
+    restartable.stop();          // already ending: remains End
+    RUN_PASSES(1);               // cleanup
     CHECK_EQ(ctx.stopCount, 1);
-    CHECK(!TASK_RUNNING(restartable));
+    CHECK(!restartable.isRunning());
 
-    START_TASK(restartable); // legal only after fully Stopped
-    RUN_PASSES(1);           // Sync (inert)
-    CHECK_EQ(ctx.entryCount, 1);
+    CHECK(restartable.start()); // Stopped -> Sync
+    restartable.stop();         // stopping is also valid during Sync
+    CHECK(!restartable.start());
+    RUN_PASSES(1); // cleanup without entering Loop
+    CHECK_EQ(ctx.stopCount, 2);
     CHECK_EQ(ctx.loopCount, 1);
-    RUN_PASSES(1); // Entry
-    CHECK_EQ(ctx.entryCount, 2);
+
+    CHECK(restartable.start());
+    RUN_PASSES(1); // Sync (inert)
     CHECK_EQ(ctx.loopCount, 1);
     RUN_PASSES(1); // Loop
     CHECK_EQ(ctx.loopCount, 2);

@@ -3,37 +3,49 @@
 // Main: main.cpp (cpp)
 #pragma once
 
+#include <cstdint>
 #include "tasks/Task.hpp"
 #include "TaskDefinitions.hpp"
 
-void Entry_ledBlinker(void* rawCtx_, ::uslice::Task* self);
 void Loop_ledBlinker(void* rawCtx_, ::uslice::Task* self);
 void Stop_ledBlinker(void* rawCtx_, ::uslice::Task* self);
 
-void Entry_motor(void* rawCtx_, ::uslice::Task* self);
 void Loop_motor(void* rawCtx_, ::uslice::Task* self);
 void Stop_motor(void* rawCtx_, ::uslice::Task* self);
 
-void Entry_sensorMonitor(void* rawCtx_, ::uslice::Task* self);
 void Loop_sensorMonitor(void* rawCtx_, ::uslice::Task* self);
 void Stop_sensorMonitor(void* rawCtx_, ::uslice::Task* self);
 
-void Entry_logic(void* rawCtx_, ::uslice::Task* self);
 void Loop_logic(void* rawCtx_, ::uslice::Task* self);
 void Stop_logic(void* rawCtx_, ::uslice::Task* self);
 
 namespace example::tasks {
 
-extern LedBlinkerContext ledBlinkerContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-extern ::uslice::Task ledBlinker; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+enum class LedBlinkerCase : std::uint8_t {
+    BLINK,
+    DONE,
+};
+LedBlinkerContext& ledBlinkerContext() noexcept;
+::uslice::Task& ledBlinker() noexcept;
 
-extern MotorContext motorContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-extern ::uslice::Task motor; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+enum class MotorCase : std::uint8_t {
+    RUN,
+};
+MotorContext& motorContext() noexcept;
+::uslice::Task& motor() noexcept;
 
-extern SensorMonitorContext sensorMonitorContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-extern ::uslice::Task sensorMonitor; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+enum class SensorMonitorCase : std::uint8_t {
+    READ,
+    CHECK,
+};
+SensorMonitorContext& sensorMonitorContext() noexcept;
+::uslice::Task& sensorMonitor() noexcept;
 
-extern LogicContext logicContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-extern ::uslice::Task logic; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+enum class LogicCase : std::uint8_t {
+    INIT,
+    MONITOR,
+};
+LogicContext& logicContext() noexcept;
+::uslice::Task& logic() noexcept;
 
 } // namespace example::tasks

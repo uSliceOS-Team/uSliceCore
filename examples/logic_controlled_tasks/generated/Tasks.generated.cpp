@@ -6,50 +6,113 @@
 #include "tasks/Task.hpp"
 #include "TaskDefinitions.hpp"
 
+namespace example::tasks::generated_detail {
+
+constexpr ::uslice::Task::Program ledBlinkerProgram{
+    .loop = ::Loop_ledBlinker,
+    .stop = ::Stop_ledBlinker,
+    .caseCount = 2,
+};
+
+constexpr ::uslice::Task::Program motorProgram{
+    .loop = ::Loop_motor,
+    .stop = ::Stop_motor,
+    .caseCount = 1,
+};
+
+constexpr ::uslice::Task::Program sensorMonitorProgram{
+    .loop = ::Loop_sensorMonitor,
+    .stop = ::Stop_sensorMonitor,
+    .caseCount = 2,
+};
+
+constexpr ::uslice::Task::Program logicProgram{
+    .loop = ::Loop_logic,
+    .stop = ::Stop_logic,
+    .caseCount = 2,
+};
+
+} // namespace example::tasks::generated_detail
+
+namespace {
+
+template <typename Context>
+class ContextStorage {
+    mutable Context value{};
+
+public:
+    constexpr Context& get() const noexcept { return value; }
+};
+
+template <const ::uslice::Task::Program* ProgramPtr>
+class TaskStorage {
+    mutable ::uslice::Task value;
+
+public:
+    consteval explicit TaskStorage(
+        ::uslice::Task::Definition<ProgramPtr> definition) noexcept
+        : value(definition) {}
+    constexpr ::uslice::Task& get() const noexcept { return value; }
+};
+
+constinit const ContextStorage<LedBlinkerContext> ledBlinkerContextStorage{};
+constinit const TaskStorage<&example::tasks::generated_detail::ledBlinkerProgram> ledBlinkerStorage{
+    ::uslice::Task::Definition<&example::tasks::generated_detail::ledBlinkerProgram>{
+    .context = &ledBlinkerContextStorage.get(),
+    .autostart = true,
+    }
+};
+
+constinit const ContextStorage<MotorContext> motorContextStorage{};
+constinit const TaskStorage<&example::tasks::generated_detail::motorProgram> motorStorage{
+    ::uslice::Task::Definition<&example::tasks::generated_detail::motorProgram>{
+    .context = &motorContextStorage.get(),
+    .autostart = false,
+    }
+};
+
+constinit const ContextStorage<SensorMonitorContext> sensorMonitorContextStorage{};
+constinit const TaskStorage<&example::tasks::generated_detail::sensorMonitorProgram> sensorMonitorStorage{
+    ::uslice::Task::Definition<&example::tasks::generated_detail::sensorMonitorProgram>{
+    .context = &sensorMonitorContextStorage.get(),
+    .autostart = true,
+    }
+};
+
+constinit const ContextStorage<LogicContext> logicContextStorage{};
+constinit const TaskStorage<&example::tasks::generated_detail::logicProgram> logicStorage{
+    ::uslice::Task::Definition<&example::tasks::generated_detail::logicProgram>{
+    .context = &logicContextStorage.get(),
+    .autostart = true,
+    }
+};
+
+} // namespace
+
 namespace example::tasks {
 
-constinit LedBlinkerContext ledBlinkerContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task ledBlinker{::uslice::Task::Definition<::Loop_ledBlinker>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    .entry = ::Entry_ledBlinker,
-    .stop = ::Stop_ledBlinker,
-    .context = &ledBlinkerContext,
-    .autostart = true,
-}};
+LedBlinkerContext& ledBlinkerContext() noexcept { return ledBlinkerContextStorage.get(); }
+::uslice::Task& ledBlinker() noexcept { return ledBlinkerStorage.get(); }
 
-constinit MotorContext motorContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task motor{::uslice::Task::Definition<::Loop_motor>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    .entry = ::Entry_motor,
-    .stop = ::Stop_motor,
-    .context = &motorContext,
-    .autostart = false,
-}};
+MotorContext& motorContext() noexcept { return motorContextStorage.get(); }
+::uslice::Task& motor() noexcept { return motorStorage.get(); }
 
-constinit SensorMonitorContext sensorMonitorContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task sensorMonitor{::uslice::Task::Definition<::Loop_sensorMonitor>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    .entry = ::Entry_sensorMonitor,
-    .stop = ::Stop_sensorMonitor,
-    .context = &sensorMonitorContext,
-    .autostart = true,
-}};
+SensorMonitorContext& sensorMonitorContext() noexcept { return sensorMonitorContextStorage.get(); }
+::uslice::Task& sensorMonitor() noexcept { return sensorMonitorStorage.get(); }
 
-constinit LogicContext logicContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-constinit ::uslice::Task logic{::uslice::Task::Definition<::Loop_logic>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-    .entry = ::Entry_logic,
-    .stop = ::Stop_logic,
-    .context = &logicContext,
-    .autostart = true,
-}};
+LogicContext& logicContext() noexcept { return logicContextStorage.get(); }
+::uslice::Task& logic() noexcept { return logicStorage.get(); }
 
 } // namespace example::tasks
 
 namespace example::tasks::generated_detail {
 
 // Nodes are declared tail-first; traversal remains in DSL order.
-// Scheduler order: ledBlinker motor sensorMonitor logic
-constexpr ::uslice::TaskLink taskRegistry_logicLink{&example::tasks::logic, nullptr};
-constexpr ::uslice::TaskLink taskRegistry_sensorMonitorLink{&example::tasks::sensorMonitor, &taskRegistry_logicLink};
-constexpr ::uslice::TaskLink taskRegistry_motorLink{&example::tasks::motor, &taskRegistry_sensorMonitorLink};
-constexpr ::uslice::TaskLink taskRegistry_ledBlinkerLink{&example::tasks::ledBlinker, &taskRegistry_motorLink};
+// Scheduler order: ledBlinker -> motor -> sensorMonitor -> logic
+constexpr ::uslice::TaskLink taskRegistry_logicLink{&logicStorage.get(), nullptr};
+constexpr ::uslice::TaskLink taskRegistry_sensorMonitorLink{&sensorMonitorStorage.get(), &taskRegistry_logicLink};
+constexpr ::uslice::TaskLink taskRegistry_motorLink{&motorStorage.get(), &taskRegistry_sensorMonitorLink};
+constexpr ::uslice::TaskLink taskRegistry_ledBlinkerLink{&ledBlinkerStorage.get(), &taskRegistry_motorLink};
 
 } // namespace example::tasks::generated_detail
 

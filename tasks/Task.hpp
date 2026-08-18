@@ -14,108 +14,104 @@
 
 namespace uslice {
 
-class Task;
-
-namespace detail {
-
-template <void (*Loop)(void*, Task*)> struct TaskLoopValidator {
-    static constexpr bool valid = true;
-};
-
-template <> struct TaskLoopValidator<nullptr> {
-    static constexpr bool valid = false;
-};
-
-} // namespace detail
-
 enum class TaskState : std::uint8_t {
     STOPPED = 0,
     SYNC, // manual start accepted; one synchronizing scheduler turn
-    ENTRY,
     LOOP,
     END // cleanup runs on this scheduler turn
 };
 
-// Registered addresses must stay stable. Destruction needs no custom work, so
-// the implicit destructor is intentionally retained.
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 class Task {
 public:
     using case_t = std::uint32_t;
     using Handler = void (*)(void*, Task*);
 
-    template <Handler Loop> struct Definition {
-        Handler entry;
+    // Program metadata is immutable and may be placed in read-only storage.
+    // The loop handler dispatches the current case with an ordinary switch.
+    struct Program {
+        Handler loop;
         Handler stop;
+        case_t caseCount;
+    };
+
+    template <const Program* ProgramPtr> struct Definition {
         void* context;
         bool autostart;
     };
 
 private:
-    // Intentionally has no constexpr definition. A consteval constructor can
-    // only reach this call for an invalid definition, which makes that
-    // definition fail constant evaluation without requiring exceptions.
-    static void rejectMissingLoopHandler() noexcept;
+    template <const Program* ProgramPtr>
+    static consteval bool validProgram() noexcept {
+        return ProgramPtr != nullptr && ProgramPtr->loop != nullptr &&
+               ProgramPtr->caseCount != 0;
+    }
 
     TaskState state_ = TaskState::STOPPED;
     bool faulted_ = false;
     case_t currentCase_ = 0;
 
-    Handler entry_;
-    Handler loop_;
-    Handler stop_;
+    const Program* program_;
     void* context_;
 
-public:
-    template <Handler Loop>
-    consteval explicit Task(Definition<Loop> definition) noexcept
-        : state_(definition.autostart ? TaskState::ENTRY : TaskState::STOPPED),
-          entry_(definition.entry), loop_(Loop), stop_(definition.stop),
-          context_(definition.context) {
-        if constexpr (!detail::TaskLoopValidator<Loop>::valid) {
-            rejectMissingLoopHandler();
+    void executeLoop() {
+        if (currentCase_ >= program_->caseCount) {
+            faulted_ = true;
+            state_ = TaskState::END;
+            return;
         }
+        program_->loop(context_, this);
+    }
+
+public:
+    template <const Program* ProgramPtr>
+        requires(ProgramPtr != nullptr)
+    consteval explicit Task(Definition<ProgramPtr> definition) noexcept
+        : state_(definition.autostart ? TaskState::LOOP : TaskState::STOPPED),
+          faulted_(false), currentCase_(0), program_(ProgramPtr),
+          context_(definition.context) {
+        static_assert(validProgram<ProgramPtr>(),
+                      "Task requires a loop handler and at least one case");
     }
 
     Task(const Task&) = delete;
     Task(Task&&) = delete;
+    ~Task() = default;
     Task& operator=(const Task&) = delete;
     Task& operator=(Task&&) = delete;
+
     void execute() {
         switch (state_) {
             case TaskState::STOPPED:
                 break;
             case TaskState::SYNC:
-                state_ = TaskState::ENTRY;
-                break;
-            case TaskState::ENTRY:
-                currentCase_ = 0;
-                faulted_ = false;
-                if (entry_ != nullptr) {
-                    entry_(context_, this);
-                }
                 state_ = TaskState::LOOP;
                 break;
             case TaskState::LOOP:
-                loop_(context_, this);
+                executeLoop();
                 break;
             case TaskState::END:
-                if (stop_ != nullptr) {
-                    stop_(context_, this);
+                if (program_->stop != nullptr) {
+                    program_->stop(context_, this);
                 }
                 state_ = TaskState::STOPPED;
                 break;
         }
     }
 
-    constexpr void start() {
+    constexpr bool start() {
+        if (state_ == TaskState::END) {
+            return false;
+        }
         if (state_ == TaskState::STOPPED) {
+            currentCase_ = 0;
+            faulted_ = false;
             state_ = TaskState::SYNC;
         }
+        return true;
     }
 
     constexpr void stop() {
-        if (state_ == TaskState::LOOP) {
+        if (state_ != TaskState::STOPPED) {
             state_ = TaskState::END;
         }
     }

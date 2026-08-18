@@ -32,13 +32,13 @@ int main(void) {
 
     std::cout << "\n=== final state ===\n"
               << "ledBlinker   running="
-              << example::tasks::ledBlinker.isRunning() << '\n'
-              << "motor        running=" << example::tasks::motor.isRunning()
-              << " actualSpeed=" << example::tasks::motorContext.actualSpeed
+              << example::tasks::ledBlinker().isRunning() << '\n'
+              << "motor        running=" << example::tasks::motor().isRunning()
+              << " actualSpeed=" << example::tasks::motorContext().actualSpeed
               << '\n'
               << "sensorMonitor running="
-              << example::tasks::sensorMonitor.isRunning()
-              << " faulted=" << example::tasks::sensorMonitor.isFaulted()
+              << example::tasks::sensorMonitor().isRunning()
+              << " faulted=" << example::tasks::sensorMonitor().isFaulted()
               << '\n';
 
     return 0;

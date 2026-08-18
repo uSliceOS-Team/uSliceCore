@@ -1,6 +1,6 @@
 /**
  * @file test_task_instance.cpp
- * @brief One Entry/Loop/Stop handler triple is reused by multiple tasks.
+ * @brief One task Program is reused by multiple task objects.
  * Task objects, each with its own context -- e.g. one motor-control
  * function driving several motors.
  */
@@ -13,20 +13,31 @@ struct MotorCtx {
     int speed = 0;
 };
 
-TASK_ENTRY(motor) {}
-
-TASK_LOOP(motor) {
-    CTX(MotorCtx);
-    localTask->speed++;
+void Loop_motor(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<MotorCtx*>(rawCtx_);
+    switch (self->currentCase()) {
+        case 0:
+            localTask->speed++;
+            break;
+    }
 }
 
-TASK_STOP(motor) {}
+void Stop_motor([[maybe_unused]] void* rawCtx_,
+                [[maybe_unused]] ::uslice::Task* self) {}
 
-TEST_TASK(motor, MotorCtx, true);
+constexpr ::uslice::Task::Program motorProgram{
+    .loop = &Loop_motor,
+    .stop = &Stop_motor,
+    .caseCount = 1,
+};
+
+constinit MotorCtx motorContext{};
+constinit ::uslice::Task motor{::uslice::Task::Definition<&motorProgram>{
+    .context = &motorContext,
+    .autostart = true,
+}};
 constinit MotorCtx motor_rightContext{};
-constinit ::uslice::Task motor_right{::uslice::Task::Definition<::Loop_motor>{
-    .entry = ::Entry_motor,
-    .stop = ::Stop_motor,
+constinit ::uslice::Task motor_right{::uslice::Task::Definition<&motorProgram>{
     .context = &motor_rightContext,
     .autostart = false,
 }};
@@ -37,25 +48,22 @@ constinit const ::uslice::TaskRegistry testRegistry{&motorLink};
 int main() {
     // motor_right is configured with autostart=false, so it needs an
     // explicit start.
-    CHECK(TASK_RUNNING(motor));
-    CHECK(!TASK_RUNNING(motor_right));
-    START_TASK(motor_right);
+    CHECK(motor.isRunning());
+    CHECK(!motor_right.isRunning());
+    CHECK(motor_right.start());
 
-    RUN_PASSES(1); // motor: Entry.        motor_right: Sync (inert)
-    RUN_PASSES(1); // motor: first Loop.   motor_right: Entry (staggered by
-                   // one pass -- motor_right went through Sync first,
-                   // motor didn't need to)
+    RUN_PASSES(1); // motor: first Loop. motor_right: Sync (inert)
 
     // Give motor_right's context a different starting point to prove the
-    // two instances don't share storage. Safe here: motor_right's Loop
+    // two instances don't share storage. Safe here: motor_right's case
     // hasn't run yet at this point (see above).
-    TASK_CONTEXT(motor_right, MotorCtx).speed = 100;
+    motor_rightContext.speed = 100;
 
-    RUN_PASSES(3); // both now firmly in Loop
+    RUN_PASSES(3); // both now dispatching their case
 
-    CHECK_EQ(TASK_CONTEXT(motor, MotorCtx).speed, 4); // 1 + 3 more Loop calls
-    CHECK_EQ(TASK_CONTEXT(motor_right, MotorCtx).speed,
-             103); // 100 + 3 more Loop calls
+    CHECK_EQ(motorContext.speed, 4); // 1 + 3 more Loop calls
+    CHECK_EQ(motor_rightContext.speed,
+             103); // 100 + 3 more case calls
 
     return TEST_SUMMARY("test_task_instance");
 }

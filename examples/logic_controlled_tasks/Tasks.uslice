@@ -1,10 +1,24 @@
-# Task order is scheduler order. Names imply Context and handler names:
-# motor -> MotorContext, Entry_motor, Loop_motor, Stop_motor.
+# Task order is scheduler order. Cases become values of the generated enum used
+# by the task's Loop_<task> switch.
 namespace example::tasks
 main "main.cpp"
 definitions "TaskDefinitions.hpp"
 
-task ledBlinker autostart
-task motor
-task sensorMonitor autostart
-task logic autostart
+task ledBlinker with autostart {
+    case BLINK
+    case DONE
+}
+
+task motor {
+    case RUN
+}
+
+task sensorMonitor with autostart {
+    case READ
+    case CHECK
+}
+
+task logic with autostart {
+    case INIT
+    case MONITOR
+}

@@ -7,6 +7,7 @@
 
 struct LedBlinkerContext {
     int blinksRemaining = 5;
+    bool initialized = false;
 };
 
 struct MotorContext {

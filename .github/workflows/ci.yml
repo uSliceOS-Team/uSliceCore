@@ -84,7 +84,16 @@ jobs:
       - uses: actions/checkout@v5
       - name: Validate generator syntax
         run: bash -n tools/taskgen.sh
-      - name: Generate files
+      - name: Check committed generated files
+        run: |
+          bash tools/taskgen.sh examples/logic_controlled_tasks/Tasks.uslice \
+            --api examples/logic_controlled_tasks/generated/Tasks.generated.hpp \
+            --manager examples/logic_controlled_tasks/generated/Manager.generated.hpp \
+            --definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp \
+            --api-include generated/Tasks.generated.hpp \
+            --manager-include generated/Manager.generated.hpp \
+            --check
+      - name: Check regeneration is idempotent
         run: |
           bash tools/taskgen.sh examples/logic_controlled_tasks/Tasks.uslice \
             --api examples/logic_controlled_tasks/generated/Tasks.generated.hpp \
@@ -92,8 +101,6 @@ jobs:
             --definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp \
             --api-include generated/Tasks.generated.hpp \
             --manager-include generated/Manager.generated.hpp
-      - name: Check generated files are deterministic
-        run: |
           bash tools/taskgen.sh examples/logic_controlled_tasks/Tasks.uslice \
             --api examples/logic_controlled_tasks/generated/Tasks.generated.hpp \
             --manager examples/logic_controlled_tasks/generated/Manager.generated.hpp \
@@ -108,7 +115,19 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - name: Generate files with PowerShell
+      - name: Check committed files with PowerShell
+        shell: pwsh
+        run: |
+          & ./tools/taskgen.ps1 `
+            -InputPath examples/logic_controlled_tasks/Tasks.uslice `
+            -Api examples/logic_controlled_tasks/generated/Tasks.generated.hpp `
+            -Manager examples/logic_controlled_tasks/generated/Manager.generated.hpp `
+            -Definitions examples/logic_controlled_tasks/generated/Tasks.generated.cpp `
+            -ApiInclude generated/Tasks.generated.hpp `
+            -ManagerInclude generated/Manager.generated.hpp `
+            -MainPath main.cpp `
+            -Check
+      - name: Check PowerShell regeneration is idempotent
         shell: pwsh
         run: |
           & ./tools/taskgen.ps1 `
@@ -119,9 +138,6 @@ jobs:
             -ApiInclude generated/Tasks.generated.hpp `
             -ManagerInclude generated/Manager.generated.hpp `
             -MainPath main.cpp
-      - name: Check generated files are deterministic with PowerShell
-        shell: pwsh
-        run: |
           & ./tools/taskgen.ps1 `
             -InputPath examples/logic_controlled_tasks/Tasks.uslice `
             -Api examples/logic_controlled_tasks/generated/Tasks.generated.hpp `

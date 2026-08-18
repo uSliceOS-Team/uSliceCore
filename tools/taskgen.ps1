@@ -56,6 +56,11 @@ $mainFromDsl = $null
 $definitionsHeader = $null
 $tasks = @()
 $autostarts = @()
+$caseLists = [System.Collections.Generic.Dictionary[string, object]]::new(
+    [System.StringComparer]::Ordinal
+)
+$currentTask = $null
+$currentTaskLine = 0
 
 $lines = [System.IO.File]::ReadAllLines($inputFullPath)
 for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
@@ -65,45 +70,74 @@ for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
         continue
     }
 
-    if ($line -match '^namespace\s+(.+)$') {
+    if ($null -ne $currentTask) {
+        if ($line -ceq '}') {
+            $currentTask = $null
+        }
+        elseif ($line -cmatch '^case\s+([A-Za-z_][A-Za-z0-9_]*)$') {
+            $caseName = $Matches[1]
+            if ($caseLists[$currentTask] -ccontains $caseName) {
+                Fail ('{0}:{1}: duplicate case {2} for task {3}' -f $InputPath, $lineNumber, $caseName, $currentTask)
+            }
+            [void]$caseLists[$currentTask].Add($caseName)
+        }
+        else {
+            Fail ('{0}:{1}: unexpected statement {2} in task {3}' -f $InputPath, $lineNumber, $line, $currentTask)
+        }
+    }
+    elseif ($line -cmatch '^namespace\s+(.+)$') {
         if ($null -ne $namespace) {
             Fail ('{0}:{1}: namespace may be declared only once' -f $InputPath, $lineNumber)
         }
         $namespace = $Matches[1].Trim()
-        if ($namespace -notmatch '^(::)?[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$') {
+        if ($namespace -cnotmatch '^(::)?[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$') {
             Fail ('{0}:{1}: invalid namespace {2}' -f $InputPath, $lineNumber, $namespace)
         }
     }
-    elseif ($line -match '^main\s+"([^"]+)"$') {
+    elseif ($line -cmatch '^main\s+"([^"]+)"$') {
         if ($null -ne $mainFromDsl) {
             Fail ('{0}:{1}: main may be declared only once' -f $InputPath, $lineNumber)
         }
         $mainFromDsl = $Matches[1]
     }
-    elseif ($line -match '^definitions\s+"([^"]+)"$') {
+    elseif ($line -cmatch '^definitions\s+"([^"]+)"$') {
         if ($null -ne $definitionsHeader) {
             Fail ('{0}:{1}: definitions may be declared only once' -f $InputPath, $lineNumber)
         }
         $definitionsHeader = $Matches[1]
     }
-    elseif ($line -match '^task\s+([A-Za-z_][A-Za-z0-9_]*)(\s+autostart)?$') {
+    elseif ($line -cmatch '^task\s+([A-Za-z_][A-Za-z0-9_]*)(\s+with\s+autostart)?\s*\{$') {
         $taskName = $Matches[1]
-        if ($tasks -contains $taskName) {
+        if ($tasks -ccontains $taskName) {
             Fail ('{0}:{1}: duplicate task {2}' -f $InputPath, $lineNumber, $taskName)
         }
         $tasks += $taskName
         $autostarts += (-not [string]::IsNullOrEmpty($Matches[2]))
+        $caseLists[$taskName] = [System.Collections.Generic.List[string]]::new()
+        $currentTask = $taskName
+        $currentTaskLine = $lineNumber
     }
     else {
         Fail ('{0}:{1}: unexpected statement {2}' -f $InputPath, $lineNumber, $line)
     }
 }
 
+if ($null -ne $currentTask) {
+    Fail ('{0}:{1}: unclosed task {2}' -f $InputPath, $currentTaskLine, $currentTask)
+}
 if ([string]::IsNullOrEmpty($namespace)) {
     Fail ('{0}: namespace is required' -f $InputPath)
 }
 if ([string]::IsNullOrEmpty($definitionsHeader)) {
     Fail ('{0}: definitions header is required' -f $InputPath)
+}
+foreach ($task in $tasks) {
+    if ($caseLists[$task].Count -eq 0) {
+        Fail ('{0}: task {1} must declare at least one case' -f $InputPath, $task)
+    }
+    if ($caseLists[$task].Count -gt 256) {
+        Fail ('{0}: task {1} exceeds the 256-case limit' -f $InputPath, $task)
+    }
 }
 
 $selectedMain = $MainPath
@@ -170,11 +204,11 @@ function Render-Api {
     Add-Line $builder ("// Main: {0} ({1})" -f $mainName, $mode)
     Add-Line $builder '#pragma once'
     Add-Line $builder
+    Add-Line $builder '#include <cstdint>'
     Add-Line $builder '#include "tasks/Task.hpp"'
     Add-Line $builder ('#include "{0}"' -f $definitionsHeader)
     foreach ($task in $tasks) {
         Add-Line $builder
-        Add-Line $builder ("void Entry_{0}(void* rawCtx_, ::uslice::Task* self);" -f $task)
         Add-Line $builder ("void Loop_{0}(void* rawCtx_, ::uslice::Task* self);" -f $task)
         Add-Line $builder ("void Stop_{0}(void* rawCtx_, ::uslice::Task* self);" -f $task)
     }
@@ -183,8 +217,13 @@ function Render-Api {
     Add-Line $builder
     foreach ($task in $tasks) {
         $stem = Type-Stem $task
-        Add-Line $builder ("extern {0}Context {1}Context; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $stem, $task)
-        Add-Line $builder ("extern ::uslice::Task {0}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $task)
+        Add-Line $builder ("enum class {0}Case : std::uint8_t {{" -f $stem)
+        foreach ($caseName in $caseLists[$task]) {
+            Add-Line $builder ("    {0}," -f $caseName)
+        }
+        Add-Line $builder '};'
+        Add-Line $builder ("{0}Context& {1}Context() noexcept;" -f $stem, $task)
+        Add-Line $builder ("::uslice::Task& {0}() noexcept;" -f $task)
         Add-Line $builder
     }
     Add-Line $builder ("}} // namespace {0}" -f $cppNamespace)
@@ -232,18 +271,61 @@ function Render-Definitions {
     Add-Line $builder '#include "tasks/Task.hpp"'
     Add-Line $builder ('#include "{0}"' -f $definitionsHeader)
     Add-Line $builder
-    Add-Line $builder ("namespace {0} {{" -f $cppNamespace)
+
+    Add-Line $builder ("namespace {0}::generated_detail {{" -f $cppNamespace)
+    Add-Line $builder
+    foreach ($task in $tasks) {
+        Add-Line $builder ("constexpr ::uslice::Task::Program {0}Program{{" -f $task)
+        Add-Line $builder ("    .loop = ::Loop_{0}," -f $task)
+        Add-Line $builder ("    .stop = ::Stop_{0}," -f $task)
+        Add-Line $builder ("    .caseCount = {0}," -f $caseLists[$task].Count)
+        Add-Line $builder '};'
+        Add-Line $builder
+    }
+    Add-Line $builder ("}} // namespace {0}::generated_detail" -f $cppNamespace)
+    Add-Line $builder
+
+    Add-Line $builder 'namespace {'
+    Add-Line $builder
+    Add-Line $builder 'template <typename Context>'
+    Add-Line $builder 'class ContextStorage {'
+    Add-Line $builder '    mutable Context value{};'
+    Add-Line $builder
+    Add-Line $builder 'public:'
+    Add-Line $builder '    constexpr Context& get() const noexcept { return value; }'
+    Add-Line $builder '};'
+    Add-Line $builder
+    Add-Line $builder 'template <const ::uslice::Task::Program* ProgramPtr>'
+    Add-Line $builder 'class TaskStorage {'
+    Add-Line $builder '    mutable ::uslice::Task value;'
+    Add-Line $builder
+    Add-Line $builder 'public:'
+    Add-Line $builder '    consteval explicit TaskStorage('
+    Add-Line $builder '        ::uslice::Task::Definition<ProgramPtr> definition) noexcept'
+    Add-Line $builder '        : value(definition) {}'
+    Add-Line $builder '    constexpr ::uslice::Task& get() const noexcept { return value; }'
+    Add-Line $builder '};'
     Add-Line $builder
     for ($taskIndex = 0; $taskIndex -lt $tasks.Count; $taskIndex++) {
         $task = $tasks[$taskIndex]
         $stem = Type-Stem $task
-        Add-Line $builder ("constinit {0}Context {1}Context{{}}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $stem, $task)
-        Add-Line $builder ("constinit ::uslice::Task {0}{{::uslice::Task::Definition<::Loop_{0}>{{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)" -f $task)
-        Add-Line $builder ("    .entry = ::Entry_{0}," -f $task)
-        Add-Line $builder ("    .stop = ::Stop_{0}," -f $task)
-        Add-Line $builder ("    .context = &{0}Context," -f $task)
+        Add-Line $builder ("constinit const ContextStorage<{0}Context> {1}ContextStorage{{}};" -f $stem, $task)
+        Add-Line $builder ("constinit const TaskStorage<&{0}::generated_detail::{1}Program> {1}Storage{{" -f $cppNamespace, $task)
+        Add-Line $builder ("    ::uslice::Task::Definition<&{0}::generated_detail::{1}Program>{{" -f $cppNamespace, $task)
+        Add-Line $builder ("    .context = &{0}ContextStorage.get()," -f $task)
         Add-Line $builder ("    .autostart = {0}," -f ($(if ($autostarts[$taskIndex]) { 'true' } else { 'false' })))
-        Add-Line $builder '}};'
+        Add-Line $builder '    }'
+        Add-Line $builder '};'
+        Add-Line $builder
+    }
+    Add-Line $builder '} // namespace'
+    Add-Line $builder
+    Add-Line $builder ("namespace {0} {{" -f $cppNamespace)
+    Add-Line $builder
+    foreach ($task in $tasks) {
+        $stem = Type-Stem $task
+        Add-Line $builder ("{0}Context& {1}Context() noexcept {{ return {1}ContextStorage.get(); }}" -f $stem, $task)
+        Add-Line $builder ("::uslice::Task& {0}() noexcept {{ return {0}Storage.get(); }}" -f $task)
         Add-Line $builder
     }
     Add-Line $builder ("}} // namespace {0}" -f $cppNamespace)
@@ -262,7 +344,7 @@ function Render-Definitions {
     for ($taskIndex = $tasks.Count - 1; $taskIndex -ge 0; $taskIndex--) {
         $task = $tasks[$taskIndex]
         $linkName = "taskRegistry_{0}Link" -f $task
-        Add-Line $builder ("constexpr ::uslice::TaskLink {0}{{&{1}::{2}, {3}}};" -f $linkName, $cppNamespace, $task, $nextLink)
+        Add-Line $builder ("constexpr ::uslice::TaskLink {0}{{&{1}Storage.get(), {2}}};" -f $linkName, $task, $nextLink)
         $nextLink = '&' + $linkName
     }
     Add-Line $builder

@@ -1,10 +1,10 @@
 /**
  * @file test_self_stop_and_cleanup.cpp
- * @brief STOP_SELF() and external STOP_TASK() both change state
- * immediately, but cleanup (TASK_STOP) runs on the task's *next*
+ * @brief Self-stop and external stop both change state
+ * immediately, but the cleanup handler runs on the task's *next*
  * scheduled turn, not the same one -- see Task Lifecycle Timing in
  * docs/TECHNICAL_REFERENCE.md. This test exercises the self-stop path; both
- * share the same underlying taskStop().
+ * share the same Task::stop() implementation.
  */
 
 #include "test_task_fixture.hpp"
@@ -16,45 +16,60 @@ struct SelfStopCtx {
     bool stopRan = false;
 };
 
-TASK_ENTRY(selfStopper) {}
-
-TASK_LOOP(selfStopper) {
-    CTX(SelfStopCtx);
-    localTask->loopCount++;
-    if (localTask->loopCount == 3) {
-        STOP_SELF();
+void Loop_selfStopper(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<SelfStopCtx*>(rawCtx_);
+    switch (self->currentCase()) {
+        case 0:
+            localTask->loopCount++;
+            if (localTask->loopCount == 3) {
+                self->stop();
+            }
+            break;
     }
 }
 
-TASK_STOP(selfStopper) {
-    CTX(SelfStopCtx);
+void Stop_selfStopper(void* rawCtx_, [[maybe_unused]] ::uslice::Task* self) {
+    auto* localTask = static_cast<SelfStopCtx*>(rawCtx_);
     localTask->stopRan = true;
 }
 
-TEST_TASK(selfStopper, SelfStopCtx, true);
+constexpr ::uslice::Task::Program selfStopperProgram{
+    .loop = &Loop_selfStopper,
+    .stop = &Stop_selfStopper,
+    .caseCount = 1,
+};
+
+constinit SelfStopCtx selfStopperContext{};
+constinit ::uslice::Task selfStopper{
+    ::uslice::Task::Definition<&selfStopperProgram>{
+        .context = &selfStopperContext,
+        .autostart = true,
+    }};
 constexpr ::uslice::TaskLink selfStopperLink{&selfStopper, nullptr};
 constinit const ::uslice::TaskRegistry testRegistry{&selfStopperLink};
 
 int main() {
-    RUN_PASSES(1); // Entry
-    RUN_PASSES(3); // Loop x3 -- the third call fires STOP_SELF()
+    RUN_PASSES(3); // case x3 -- the third call fires self->stop()
 
-    CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
+    CHECK_EQ(selfStopperContext.loopCount, 3);
     // State changed to End already, but cleanup hasn't run yet: this is
-    // the same pass STOP_SELF() was called on.
-    CHECK(!TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
-    // isRunning() is true throughout End, same as Sync/Entry -- only
-    // false once actually Stopped. Don't mistake this turn's TASK_RUNNING
+    // the same pass self->stop() was called on.
+    CHECK(!selfStopperContext.stopRan);
+    // isRunning() is true throughout End, same as Sync -- only
+    // false once actually Stopped. Don't mistake this turn's isRunning()
     // for "still fully active."
-    CHECK(TASK_RUNNING(selfStopper));
+    CHECK(selfStopper.isRunning());
 
     RUN_PASSES(1); // next scheduled turn: cleanup runs
-    CHECK(TASK_CONTEXT(selfStopper, SelfStopCtx).stopRan);
-    CHECK(!TASK_RUNNING(selfStopper));
+    CHECK(selfStopperContext.stopRan);
+    CHECK(!selfStopper.isRunning());
 
-    // Loop must not have been called again after STOP_SELF() -- the task
-    // was in End, not Loop, on every turn after the third.
-    CHECK_EQ(TASK_CONTEXT(selfStopper, SelfStopCtx).loopCount, 3);
+    // The case must not have been called again after self->stop() -- the task
+    // was in End, not the dispatch state, on every turn after the third.
+    CHECK_EQ(selfStopperContext.loopCount, 3);
+
+    selfStopper.stop(); // fully stopped: ignored
+    CHECK(selfStopper.isStopped());
 
     return TEST_SUMMARY("test_self_stop_and_cleanup");
 }

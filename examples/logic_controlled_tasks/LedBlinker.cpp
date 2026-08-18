@@ -4,10 +4,9 @@
  *
  * Demonstrates:
  *  - a context struct with no base class (just a plain struct)
- *  - TASK_ENTRY: one-time init, no SETUP case needed in the state machine
- *  - GOTO_CASE for normal state transitions
- *  - STOP_SELF(): the task decides on its own that it's done and stops
- *    itself, without any external Logic call.
+ *  - one loop handler with an ordinary switch over generated cases
+ *  - explicit state transitions between switch branches
+ *  - self-stop through the Task object when the task decides it is done
  *
  * Its context type follows the generated naming convention and is declared in
  * TaskDefinitions.hpp with the other application context types.
@@ -15,7 +14,7 @@
 
 #include "TaskDefinitions.hpp"
 #include "generated/Tasks.generated.hpp"
-#include "tasks/Macros.hpp"
+#include "tasks/Task.hpp"
 #include <iostream>
 
 // Host-side stand-ins for real GPIO calls -- see main.cpp for why this
@@ -29,32 +28,32 @@ void GPIO_Write(int pin, int on) {
 }
 } // namespace
 
-TASK_ENTRY(ledBlinker) {
-    std::cout << "[ledBlinker] ENTRY handler: one-time init\n";
-    GPIO_Init(GPIO_LED);
-}
+void Loop_ledBlinker(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<LedBlinkerContext*>(rawCtx_);
+    if (!localTask->initialized) {
+        GPIO_Init(GPIO_LED);
+        localTask->initialized = true;
+    }
 
-TASK_LOOP(ledBlinker) {
-    TASK_STATES(BLINK, DONE);
-    CTX(LedBlinkerContext);
-    switch (TASK_STATE()) {
+    using enum example::tasks::LedBlinkerCase;
+    switch (static_cast<example::tasks::LedBlinkerCase>(self->currentCase())) {
         case BLINK:
             std::cout << "[ledBlinker] blink (" << localTask->blinksRemaining
                       << " remaining)\n";
             localTask->blinksRemaining--;
             if (localTask->blinksRemaining <= 0) {
-                GOTO_CASE(DONE);
+                self->gotoCase(static_cast<::uslice::Task::case_t>(DONE));
             }
             break;
-
         case DONE:
             std::cout << "[ledBlinker] done, stopping myself\n";
-            STOP_SELF();
+            self->stop();
             break;
     }
 }
 
-TASK_STOP(ledBlinker) {
+void Stop_ledBlinker([[maybe_unused]] void* rawCtx_,
+                     [[maybe_unused]] ::uslice::Task* self) {
     std::cout << "[ledBlinker] stopped (cleanup ran)\n";
     GPIO_Write(GPIO_LED, 0);
 }

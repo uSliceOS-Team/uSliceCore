@@ -80,6 +80,9 @@ main_from_dsl=''
 definitions=''
 declare -a tasks=()
 declare -a autostarts=()
+declare -a case_lists=()
+current_task_index=-1
+current_task_line=0
 
 trim() {
     local value=$1
@@ -95,7 +98,18 @@ while IFS= read -r raw_line || [[ -n $raw_line ]]; do
     line=$(trim "$line")
     [[ -n $line ]] || continue
 
-    if [[ $line =~ ^namespace[[:space:]]+(.+)$ ]]; then
+    if ((current_task_index >= 0)); then
+        if [[ $line == '}' ]]; then
+            current_task_index=-1
+        elif [[ $line =~ ^case[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
+            case_name=${BASH_REMATCH[1]}
+            [[ " ${case_lists[current_task_index]} " != *" $case_name "* ]] ||
+                fail "$input_path:$line_number: duplicate case '$case_name' for task '${tasks[current_task_index]}'"
+            case_lists[current_task_index]+="$case_name "
+        else
+            fail "$input_path:$line_number: unexpected statement '$line' in task '${tasks[current_task_index]}'"
+        fi
+    elif [[ $line =~ ^namespace[[:space:]]+(.+)$ ]]; then
         [[ -z $namespace ]] || fail "$input_path:$line_number: namespace may be declared only once"
         namespace=$(trim "${BASH_REMATCH[1]}")
         [[ $namespace =~ ^(::)?[A-Za-z_][A-Za-z0-9_]*(::[A-Za-z_][A-Za-z0-9_]*)*$ ]] ||
@@ -106,25 +120,38 @@ while IFS= read -r raw_line || [[ -n $raw_line ]]; do
     elif [[ $line =~ ^definitions[[:space:]]+\"([^\"]+)\"$ ]]; then
         [[ -z $definitions ]] || fail "$input_path:$line_number: definitions may be declared only once"
         definitions=${BASH_REMATCH[1]}
-    elif [[ $line =~ ^task[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)([[:space:]]+autostart)?$ ]]; then
+    elif [[ $line =~ ^task[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)([[:space:]]+with[[:space:]]+autostart)?[[:space:]]*[{]$ ]]; then
         task_name=${BASH_REMATCH[1]}
         for existing in "${tasks[@]}"; do
             [[ $existing != "$task_name" ]] ||
                 fail "$input_path:$line_number: duplicate task '$task_name'"
         done
         tasks+=("$task_name")
+        case_lists+=('')
         if [[ -n ${BASH_REMATCH[2]} ]]; then
             autostarts+=(true)
         else
             autostarts+=(false)
         fi
+        current_task_index=$((${#tasks[@]} - 1))
+        current_task_line=$line_number
     else
         fail "$input_path:$line_number: unexpected statement '$line'"
     fi
 done < "$input_path"
 
+((current_task_index < 0)) ||
+    fail "$input_path:$current_task_line: unclosed task '${tasks[current_task_index]}'"
 [[ -n $namespace ]] || fail "$input_path: namespace is required"
 [[ -n $definitions ]] || fail "$input_path: definitions header is required"
+declare -a parsed_cases=()
+for task_index in "${!tasks[@]}"; do
+    [[ -n ${case_lists[task_index]} ]] ||
+        fail "$input_path: task '${tasks[task_index]}' must declare at least one case"
+    read -r -a parsed_cases <<< "${case_lists[task_index]}"
+    ((${#parsed_cases[@]} <= 256)) ||
+        fail "$input_path: task '${tasks[task_index]}' exceeds the 256-case limit"
+done
 
 main_path=$main_override
 if [[ -z $main_path ]]; then
@@ -168,18 +195,28 @@ render_api() {
     printf '// Source: %s\n' "$source_name"
     printf '// Main: %s (%s)\n' "$main_name" "$mode"
     printf '%s\n\n' '#pragma once'
+    printf '%s\n' '#include <cstdint>'
     printf '%s\n' '#include "tasks/Task.hpp"'
     printf '#include "%s"\n' "$definitions"
     for task in "${tasks[@]}"; do
-        printf '\nvoid Entry_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
-        printf 'void Loop_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
+        printf '\nvoid Loop_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
         printf 'void Stop_%s(void* rawCtx_, ::uslice::Task* self);\n' "$task"
     done
     printf '\nnamespace %s {\n\n' "$cpp_namespace"
     for task in "${tasks[@]}"; do
         stem=$(type_stem "$task")
-        printf 'extern %sContext %sContext; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$stem" "$task"
-        printf 'extern ::uslice::Task %s; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n\n' "$task"
+        task_index=0
+        while [[ ${tasks[task_index]} != "$task" ]]; do
+            task_index=$((task_index + 1))
+        done
+        read -r -a parsed_cases <<< "${case_lists[task_index]}"
+        printf 'enum class %sCase : std::uint8_t {\n' "$stem"
+        for case_name in "${parsed_cases[@]}"; do
+            printf '    %s,\n' "$case_name"
+        done
+        printf '};\n'
+        printf '%sContext& %sContext() noexcept;\n' "$stem" "$task"
+        printf '::uslice::Task& %s() noexcept;\n\n' "$task"
     done
     printf '} // namespace %s\n' "$cpp_namespace"
 }
@@ -216,17 +253,57 @@ render_definitions() {
     printf '#include "tasks/Task.hpp"\n'
     printf '#include "%s"\n\n' "$definitions"
 
-    printf 'namespace %s {\n\n' "$cpp_namespace"
+    printf 'namespace %s::generated_detail {\n\n' "$cpp_namespace"
+    for task_index in "${!tasks[@]}"; do
+        task=${tasks[task_index]}
+        read -r -a parsed_cases <<< "${case_lists[task_index]}"
+        case_count=${#parsed_cases[@]}
+        printf 'constexpr ::uslice::Task::Program %sProgram{\n' "$task"
+        printf '    .loop = ::Loop_%s,\n' "$task"
+        printf '    .stop = ::Stop_%s,\n' "$task"
+        printf '    .caseCount = %d,\n' "$case_count"
+        printf '};\n\n'
+    done
+    printf '} // namespace %s::generated_detail\n\n' "$cpp_namespace"
+
+    printf 'namespace {\n\n'
+    printf 'template <typename Context>\n'
+    printf 'class ContextStorage {\n'
+    printf '    mutable Context value{};\n\n'
+    printf 'public:\n'
+    printf '    constexpr Context& get() const noexcept { return value; }\n'
+    printf '};\n\n'
+    printf 'template <const ::uslice::Task::Program* ProgramPtr>\n'
+    printf 'class TaskStorage {\n'
+    printf '    mutable ::uslice::Task value;\n\n'
+
+    printf 'public:\n'
+    printf '    consteval explicit TaskStorage(\n'
+    printf '        ::uslice::Task::Definition<ProgramPtr> definition) noexcept\n'
+    printf '        : value(definition) {}\n'
+    printf '    constexpr ::uslice::Task& get() const noexcept { return value; }\n'
+    printf '};\n\n'
     for task_index in "${!tasks[@]}"; do
         task=${tasks[task_index]}
         stem=$(type_stem "$task")
-        printf 'constinit %sContext %sContext{}; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$stem" "$task"
-        printf 'constinit ::uslice::Task %s{::uslice::Task::Definition<::Loop_%s>{ // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)\n' "$task" "$task"
-        printf '    .entry = ::Entry_%s,\n' "$task"
-        printf '    .stop = ::Stop_%s,\n' "$task"
-        printf '    .context = &%sContext,\n' "$task"
+        printf 'constinit const ContextStorage<%sContext> %sContextStorage{};\n' "$stem" "$task"
+        printf 'constinit const TaskStorage<&%s::generated_detail::%sProgram> %sStorage{\n' \
+            "$cpp_namespace" "$task" "$task"
+        printf '    ::uslice::Task::Definition<&%s::generated_detail::%sProgram>{\n' \
+            "$cpp_namespace" "$task"
+        printf '    .context = &%sContextStorage.get(),\n' "$task"
         printf '    .autostart = %s,\n' "${autostarts[task_index]}"
-        printf '}};\n\n'
+        printf '    }\n};\n\n'
+    done
+    printf '} // namespace\n\n'
+
+    printf 'namespace %s {\n\n' "$cpp_namespace"
+    for task in "${tasks[@]}"; do
+        stem=$(type_stem "$task")
+        printf '%sContext& %sContext() noexcept { return %sContextStorage.get(); }\n' \
+            "$stem" "$task" "$task"
+        printf '::uslice::Task& %s() noexcept { return %sStorage.get(); }\n\n' \
+            "$task" "$task"
     done
     printf '} // namespace %s\n\n' "$cpp_namespace"
 
@@ -235,15 +312,18 @@ render_definitions() {
     if ((${#tasks[@]} == 0)); then
         printf '// Scheduler order: (empty)\n'
     else
-        scheduler_order=$(IFS=' -> '; printf '%s' "${tasks[*]}")
+        scheduler_order=${tasks[0]}
+        for ((task_index = 1; task_index < ${#tasks[@]}; task_index++)); do
+            scheduler_order+=" -> ${tasks[task_index]}"
+        done
         printf '// Scheduler order: %s\n' "$scheduler_order"
     fi
     next_link='nullptr'
     for ((task_index=${#tasks[@]} - 1; task_index >= 0; task_index--)); do
         task=${tasks[task_index]}
         link_name="taskRegistry_${task}Link"
-        printf 'constexpr ::uslice::TaskLink %s{&%s::%s, %s};\n' \
-            "$link_name" "$cpp_namespace" "$task" "$next_link"
+        printf 'constexpr ::uslice::TaskLink %s{&%sStorage.get(), %s};\n' \
+            "$link_name" "$task" "$next_link"
         next_link="&$link_name"
     done
     printf '\n} // namespace %s::generated_detail\n\n' "$cpp_namespace"

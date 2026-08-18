@@ -1,7 +1,7 @@
 /**
  * @file test_lifecycle_autostart.cpp
- * @brief Autostart timing: Entry runs on the very first scheduler turn,
- * Loop runs from the turn after that. No wasted turn -- see the
+ * @brief Autostart timing: the first case runs on the first scheduler turn.
+ * No startup turn is wasted -- see the
  * "Autostart" workflow in docs/TECHNICAL_REFERENCE.md.
  */
 
@@ -10,41 +10,45 @@
 #include "test_framework.hpp"
 
 struct AutoCtx {
-    bool entryRan = false;
     int loopCount = 0;
 };
 
-TASK_ENTRY(autoTask) {
-    CTX(AutoCtx);
-    localTask->entryRan = true;
+void Loop_autoTask(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<AutoCtx*>(rawCtx_);
+    switch (self->currentCase()) {
+        case 0:
+            localTask->loopCount++;
+            break;
+    }
 }
 
-TASK_LOOP(autoTask) {
-    CTX(AutoCtx);
-    localTask->loopCount++;
-}
+void Stop_autoTask([[maybe_unused]] void* rawCtx_,
+                   [[maybe_unused]] ::uslice::Task* self) {}
 
-TASK_STOP(autoTask) {}
+constexpr ::uslice::Task::Program autoTaskProgram{
+    .loop = &Loop_autoTask,
+    .stop = &Stop_autoTask,
+    .caseCount = 1,
+};
 
-TEST_TASK(autoTask, AutoCtx, true);
+constinit AutoCtx autoTaskContext{};
+constinit ::uslice::Task autoTask{::uslice::Task::Definition<&autoTaskProgram>{
+    .context = &autoTaskContext,
+    .autostart = true,
+}};
 constexpr ::uslice::TaskLink autoTaskLink{&autoTask, nullptr};
 constinit const ::uslice::TaskRegistry testRegistry{&autoTaskLink};
 
 int main() {
-    // Turn 0: Entry runs. Loop has not run yet.
+    // Turn 0: the first case runs immediately.
     RUN_PASSES(1);
-    CHECK(TASK_CONTEXT(autoTask, AutoCtx).entryRan == true);
-    CHECK_EQ(TASK_CONTEXT(autoTask, AutoCtx).loopCount, 0);
-    CHECK(TASK_RUNNING(autoTask));
+    CHECK_EQ(autoTaskContext.loopCount, 1);
+    CHECK(autoTask.isRunning());
 
-    // Turn 1: first real Loop call.
-    RUN_PASSES(1);
-    CHECK_EQ(TASK_CONTEXT(autoTask, AutoCtx).loopCount, 1);
-
-    // Loop keeps running every subsequent turn.
+    // The case keeps running every subsequent turn.
     RUN_PASSES(3);
-    CHECK_EQ(TASK_CONTEXT(autoTask, AutoCtx).loopCount, 4);
-    CHECK(TASK_RUNNING(autoTask));
+    CHECK_EQ(autoTaskContext.loopCount, 4);
+    CHECK(autoTask.isRunning());
 
     return TEST_SUMMARY("test_lifecycle_autostart");
 }

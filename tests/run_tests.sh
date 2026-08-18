@@ -181,11 +181,11 @@ run_compile_fail_test() {
     if "$CXX" "${CXXFLAGS[@]}" -c \
         "$SCRIPT_DIR/$test_name.cpp" -o "$BUILD_DIR/$test_name.o" \
         2>"$BUILD_DIR/$test_name.build.log"; then
-        echo "  UNEXPECTEDLY COMPILED -- missing loop must be rejected"
+        echo "  UNEXPECTEDLY COMPILED -- a missing Loop handler must be rejected"
         overall_status=1
         return
     fi
-    if ! grep -q "rejectMissingLoopHandler" \
+    if ! grep -q "Task requires a loop handler and at least one case" \
         "$BUILD_DIR/$test_name.build.log"; then
         echo "  FAILED FOR THE WRONG REASON -- see the build log"
         overall_status=1
@@ -198,6 +198,7 @@ run_compile_fail_test() {
 
 run_one test_lifecycle_autostart       "$SCRIPT_DIR/test_lifecycle_autostart.cpp"
 run_one test_lifecycle_manual_start    "$SCRIPT_DIR/test_lifecycle_manual_start.cpp"
+run_one test_switch_case_dispatch     "$SCRIPT_DIR/test_switch_case_dispatch.cpp"
 run_one test_self_stop_and_cleanup     "$SCRIPT_DIR/test_self_stop_and_cleanup.cpp"
 run_one test_fault_flag                "$SCRIPT_DIR/test_fault_flag.cpp"
 run_one test_task_instance             "$SCRIPT_DIR/test_task_instance.cpp"

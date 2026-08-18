@@ -9,16 +9,28 @@
 #include "test_task_fixture.hpp"
 #include "CrossFileCtx.hpp"
 
-TASK_ENTRY(crossFileMotor) {
-    CTX(CrossFileCtx);
-    localTask->entrySawTargetSpeed = localTask->targetSpeed;
+void Loop_crossFileMotor(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<CrossFileCtx*>(rawCtx_);
+    switch (self->currentCase()) {
+        case 0:
+            localTask->loopSawTargetSpeed = localTask->targetSpeed;
+            localTask->actualSpeed = localTask->targetSpeed;
+            break;
+    }
 }
 
-TASK_LOOP(crossFileMotor) {
-    CTX(CrossFileCtx);
-    localTask->actualSpeed = localTask->targetSpeed;
-}
+void Stop_crossFileMotor([[maybe_unused]] void* rawCtx_,
+                         [[maybe_unused]] ::uslice::Task* self) {}
 
-TASK_STOP(crossFileMotor) {}
+constexpr ::uslice::Task::Program crossFileMotorProgram{
+    .loop = &Loop_crossFileMotor,
+    .stop = &Stop_crossFileMotor,
+    .caseCount = 1,
+};
 
-TEST_TASK(crossFileMotor, CrossFileCtx, false);
+constinit CrossFileCtx crossFileMotorContext{};
+constinit ::uslice::Task crossFileMotor{
+    ::uslice::Task::Definition<&crossFileMotorProgram>{
+        .context = &crossFileMotorContext,
+        .autostart = false,
+    }};

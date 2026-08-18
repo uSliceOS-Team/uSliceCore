@@ -44,4 +44,4 @@ echo "=== Task size: STM32F1/CH32F103 class (Cortex-M3 / ARM EABI) ==="
 "$CXX" --target=armv7m-none-eabi -mcpu=cortex-m3 -mthumb \
     "${COMMON_FLAGS[@]}" "$SOURCE" -o "$BUILD_DIR/task-arm32.o"
 
-echo "Task is 24 bytes on all three checked 32-bit targets"
+echo "Task is 16 bytes on all three checked 32-bit targets"

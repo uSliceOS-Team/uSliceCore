@@ -7,5 +7,5 @@
 struct CrossFileCtx {
     int targetSpeed = 0;
     int actualSpeed = 0;
-    int entrySawTargetSpeed = -1; // proves Entry ran after main.cpp's write
+    int loopSawTargetSpeed = -1; // proves Loop ran after main.cpp's write
 };

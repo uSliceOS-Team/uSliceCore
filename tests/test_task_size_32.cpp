@@ -12,5 +12,5 @@ static_assert(sizeof(void*) == 4,
               "this test must use a 32-bit data-pointer ABI");
 static_assert(sizeof(void (*)(void*, ::uslice::Task*)) == 4,
               "this test expects 32-bit function pointers");
-static_assert(sizeof(::uslice::Task) == 24,
+static_assert(sizeof(::uslice::Task) == 16,
               "Task layout changed: update the RAM budget intentionally");

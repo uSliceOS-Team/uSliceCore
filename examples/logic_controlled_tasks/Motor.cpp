@@ -9,25 +9,23 @@
 
 #include "TaskDefinitions.hpp"
 #include "generated/Tasks.generated.hpp"
-#include "tasks/Macros.hpp"
+#include "tasks/Task.hpp"
 #include <iostream>
 
-TASK_ENTRY(motor) {
-    CTX(const MotorContext);
-    // Logic used the generated typed context before calling start(), so the
-    // value is already visible by the time this handler runs.
-    std::cout << "[motor] ENTRY handler: configured targetSpeed="
-              << localTask->targetSpeed << '\n';
+void Loop_motor(void* rawCtx_, ::uslice::Task* self) {
+    auto* localTask = static_cast<MotorContext*>(rawCtx_);
+    using enum example::tasks::MotorCase;
+    switch (static_cast<example::tasks::MotorCase>(self->currentCase())) {
+        case RUN:
+            localTask->actualSpeed = localTask->targetSpeed;
+            std::cout << "[motor] running at speed=" << localTask->actualSpeed
+                      << '\n';
+            break;
+    }
 }
 
-TASK_LOOP(motor) {
-    CTX(MotorContext);
-    localTask->actualSpeed = localTask->targetSpeed;
-    std::cout << "[motor] running at speed=" << localTask->actualSpeed << '\n';
-}
-
-TASK_STOP(motor) {
-    CTX(const MotorContext);
+void Stop_motor(void* rawCtx_, [[maybe_unused]] ::uslice::Task* self) {
+    const MotorContext* localTask = static_cast<const MotorContext*>(rawCtx_);
     std::cout << "[motor] stopped, last actualSpeed=" << localTask->actualSpeed
               << '\n';
 }

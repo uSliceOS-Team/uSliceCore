@@ -14,6 +14,17 @@
 
 namespace uslice {
 
+class Task;
+
+namespace detail {
+
+template <void (*Loop)(void*, Task*)>
+inline constexpr bool validTaskLoop = true;
+
+template <> inline constexpr bool validTaskLoop<nullptr> = false;
+
+} // namespace detail
+
 enum class TaskState : std::uint8_t {
     STOPPED = 0,
     SYNC, // manual start accepted; one synchronizing scheduler turn
@@ -42,7 +53,8 @@ public:
 private:
     template <const Program* ProgramPtr>
     static consteval bool validProgram() noexcept {
-        return ProgramPtr != nullptr && ProgramPtr->loop != nullptr &&
+        return ProgramPtr != nullptr &&
+               detail::validTaskLoop<ProgramPtr->loop> &&
                ProgramPtr->caseCount != 0;
     }
 

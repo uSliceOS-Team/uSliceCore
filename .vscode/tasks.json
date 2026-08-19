@@ -1,0 +1,135 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "taskgen: regenerate example registry",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "tools/taskgen.sh",
+                "examples/logic_controlled_tasks/Tasks.uslice",
+                "--api",
+                "examples/logic_controlled_tasks/generated/Tasks.generated.hpp",
+                "--manager",
+                "examples/logic_controlled_tasks/generated/Manager.generated.hpp",
+                "--definitions",
+                "examples/logic_controlled_tasks/generated/Tasks.generated.cpp",
+                "--api-include",
+                "generated/Tasks.generated.hpp",
+                "--manager-include",
+                "generated/Manager.generated.hpp",
+                "--main",
+                "main.cpp"
+            ],
+            "windows": {
+                "command": "pwsh",
+                "args": [
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    "tools/taskgen.ps1",
+                    "-InputPath",
+                    "examples/logic_controlled_tasks/Tasks.uslice",
+                    "-Api",
+                    "examples/logic_controlled_tasks/generated/Tasks.generated.hpp",
+                    "-Manager",
+                    "examples/logic_controlled_tasks/generated/Manager.generated.hpp",
+                    "-Definitions",
+                    "examples/logic_controlled_tasks/generated/Tasks.generated.cpp",
+                    "-ApiInclude",
+                    "generated/Tasks.generated.hpp",
+                    "-ManagerInclude",
+                    "generated/Manager.generated.hpp",
+                    "-MainPath",
+                    "main.cpp"
+                ]
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            // taskgen's own errors look like "taskgen: path/to/Tasks.uslice:12:
+            // message" -- this turns a DSL mistake into a normal editor
+            // diagnostic instead of terminal-only text.
+            "problemMatcher": {
+                "owner": "uslice-taskgen",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^taskgen:\\s+(.*):(\\d+):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "message": 3
+                }
+            },
+            "runOptions": {
+                "runOn": "folderOpen"
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "build: example (host g++)",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-std=gnu++20",
+                "-Wall",
+                "-Wextra",
+                "-Wpedantic",
+                "-Werror",
+                "-Wconversion",
+                "-Wsign-conversion",
+                "-Wshadow",
+                "-Wundef",
+                "-Wformat=2",
+                "-Wswitch-enum",
+                "-I.",
+                "-Iexamples/logic_controlled_tasks",
+                "examples/logic_controlled_tasks/LedBlinker.cpp",
+                "examples/logic_controlled_tasks/Motor.cpp",
+                "examples/logic_controlled_tasks/SensorMonitor.cpp",
+                "examples/logic_controlled_tasks/Logic.cpp",
+                "examples/logic_controlled_tasks/generated/Tasks.generated.cpp",
+                "examples/logic_controlled_tasks/main.cpp",
+                "-g",
+                "-o",
+                "examples/logic_controlled_tasks/example"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": ["taskgen: regenerate example registry"],
+            "problemMatcher": ["$gcc"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "run: example",
+            "type": "shell",
+            "command": "${workspaceFolder}/examples/logic_controlled_tasks/example",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": ["build: example (host g++)"],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            }
+        }
+    ]
+}

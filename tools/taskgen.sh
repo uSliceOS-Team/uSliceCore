@@ -214,7 +214,38 @@ render_api() {
         for case_name in "${parsed_cases[@]}"; do
             printf '    %s,\n' "$case_name"
         done
-        printf '};\n'
+        printf '};\n\n'
+        printf '// Typed view over ::uslice::Task for the %s case enum; replaces\n' "$stem"
+        printf '// static_cast<%sCase>(self->currentCase()) and\n' "$stem"
+        printf '// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with\n'
+        printf '// type-checked calls, so a wrong-task case value cannot compile.\n'
+        printf 'class %sHandle {\n' "$stem"
+        printf '    ::uslice::Task* task_;\n\n'
+        printf 'public:\n'
+        printf '    constexpr explicit %sHandle(::uslice::Task* task) noexcept\n' "$stem"
+        printf '        : task_(task) {}\n\n'
+        printf '    [[nodiscard]] constexpr %sCase currentCase() const noexcept {\n' "$stem"
+        printf '        return static_cast<%sCase>(task_->currentCase());\n' "$stem"
+        printf '    }\n'
+        printf '    constexpr void gotoCase(%sCase value) const noexcept {\n' "$stem"
+        printf '        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));\n'
+        printf '    }\n'
+        printf '    constexpr void stop() const noexcept { task_->stop(); }\n'
+        printf '    constexpr bool start() const noexcept { return task_->start(); }\n'
+        printf '    constexpr void raiseFault() const noexcept { task_->raiseFault(); }\n'
+        printf '    [[nodiscard]] constexpr bool isFaulted() const noexcept {\n'
+        printf '        return task_->isFaulted();\n'
+        printf '    }\n'
+        printf '    [[nodiscard]] constexpr bool isRunning() const noexcept {\n'
+        printf '        return task_->isRunning();\n'
+        printf '    }\n'
+        printf '    [[nodiscard]] constexpr bool isStopped() const noexcept {\n'
+        printf '        return task_->isStopped();\n'
+        printf '    }\n'
+        printf '    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {\n'
+        printf '        return task_->state();\n'
+        printf '    }\n'
+        printf '};\n\n'
         printf '%sContext& %sContext() noexcept;\n' "$stem" "$task"
         printf '::uslice::Task& %s() noexcept;\n\n' "$task"
     done

@@ -30,24 +30,25 @@ void GPIO_Write(int pin, int on) {
 
 void Loop_ledBlinker(void* rawCtx_, ::uslice::Task* self) {
     auto* localTask = static_cast<LedBlinkerContext*>(rawCtx_);
+    const example::tasks::LedBlinkerHandle handle{self};
     if (!localTask->initialized) {
         GPIO_Init(GPIO_LED);
         localTask->initialized = true;
     }
 
     using enum example::tasks::LedBlinkerCase;
-    switch (static_cast<example::tasks::LedBlinkerCase>(self->currentCase())) {
+    switch (handle.currentCase()) {
         case BLINK:
             std::cout << "[ledBlinker] blink (" << localTask->blinksRemaining
                       << " remaining)\n";
             localTask->blinksRemaining--;
             if (localTask->blinksRemaining <= 0) {
-                self->gotoCase(static_cast<::uslice::Task::case_t>(DONE));
+                handle.gotoCase(DONE);
             }
             break;
         case DONE:
             std::cout << "[ledBlinker] done, stopping myself\n";
-            self->stop();
+            handle.stop();
             break;
     }
 }

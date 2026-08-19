@@ -3,8 +3,13 @@
 tests/.build/
 
 # Per-developer editor state. Shared clangd configuration lives in .clangd
-# and compile_flags.txt instead.
-.vscode/
+# and compile_flags.txt instead. tasks.json/launch.json are the exception:
+# they wire the DSL generator in as a pre-build step (see
+# examples/logic_controlled_tasks/README.md), so they are tracked for
+# everyone rather than left to each person to recreate.
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
 
 # Build artifact from examples/logic_controlled_tasks (see its README).
 examples/logic_controlled_tasks/example

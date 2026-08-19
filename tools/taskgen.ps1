@@ -222,6 +222,41 @@ function Render-Api {
             Add-Line $builder ("    {0}," -f $caseName)
         }
         Add-Line $builder '};'
+        Add-Line $builder
+        Add-Line $builder ("// Typed view over ::uslice::Task for the {0} case enum; replaces" -f $stem)
+        Add-Line $builder ("// static_cast<{0}Case>(self->currentCase()) and" -f $stem)
+        Add-Line $builder '// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with'
+        Add-Line $builder '// type-checked calls, so a wrong-task case value cannot compile.'
+        Add-Line $builder ("class {0}Handle {{" -f $stem)
+        Add-Line $builder '    ::uslice::Task* task_;'
+        Add-Line $builder
+        Add-Line $builder 'public:'
+        Add-Line $builder ("    constexpr explicit {0}Handle(::uslice::Task* task) noexcept" -f $stem)
+        Add-Line $builder '        : task_(task) {}'
+        Add-Line $builder
+        Add-Line $builder ("    [[nodiscard]] constexpr {0}Case currentCase() const noexcept {{" -f $stem)
+        Add-Line $builder ("        return static_cast<{0}Case>(task_->currentCase());" -f $stem)
+        Add-Line $builder '    }'
+        Add-Line $builder ("    constexpr void gotoCase({0}Case value) const noexcept {{" -f $stem)
+        Add-Line $builder '        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));'
+        Add-Line $builder '    }'
+        Add-Line $builder '    constexpr void stop() const noexcept { task_->stop(); }'
+        Add-Line $builder '    constexpr bool start() const noexcept { return task_->start(); }'
+        Add-Line $builder '    constexpr void raiseFault() const noexcept { task_->raiseFault(); }'
+        Add-Line $builder '    [[nodiscard]] constexpr bool isFaulted() const noexcept {'
+        Add-Line $builder '        return task_->isFaulted();'
+        Add-Line $builder '    }'
+        Add-Line $builder '    [[nodiscard]] constexpr bool isRunning() const noexcept {'
+        Add-Line $builder '        return task_->isRunning();'
+        Add-Line $builder '    }'
+        Add-Line $builder '    [[nodiscard]] constexpr bool isStopped() const noexcept {'
+        Add-Line $builder '        return task_->isStopped();'
+        Add-Line $builder '    }'
+        Add-Line $builder '    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {'
+        Add-Line $builder '        return task_->state();'
+        Add-Line $builder '    }'
+        Add-Line $builder '};'
+        Add-Line $builder
         Add-Line $builder ("{0}Context& {1}Context() noexcept;" -f $stem, $task)
         Add-Line $builder ("::uslice::Task& {0}() noexcept;" -f $task)
         Add-Line $builder

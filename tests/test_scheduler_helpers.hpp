@@ -9,6 +9,8 @@
 
 #pragma once
 
+extern const ::uslice::TaskRegistry testRegistry;
+
 /// Runs `count` scheduler passes over every registered task, in order --
 /// the same traversal as the explicitly configured scheduler entry point,
 /// just bounded instead of infinite so a test can inspect state between
@@ -19,4 +21,4 @@ inline void runPasses(const ::uslice::TaskRegistry& registry, int count) {
     }
 }
 
-#define RUN_PASSES(count) runPasses(testRegistry, count)
+inline void RUN_PASSES(int count) { runPasses(testRegistry, count); }

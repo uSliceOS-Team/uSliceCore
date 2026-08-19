@@ -20,24 +20,24 @@
 
 void Loop_sensorMonitor(void* rawCtx_, ::uslice::Task* self) {
     auto* localTask = static_cast<SensorMonitorContext*>(rawCtx_);
+    const example::tasks::SensorMonitorHandle handle{self};
     using enum example::tasks::SensorMonitorCase;
-    switch (
-        static_cast<example::tasks::SensorMonitorCase>(self->currentCase())) {
+    switch (handle.currentCase()) {
         case READ:
             localTask->reading++; // stand-in for ADC_Read()
-            self->gotoCase(static_cast<::uslice::Task::case_t>(CHECK));
+            handle.gotoCase(CHECK);
             break;
         case CHECK:
             if (localTask->reading >= 4) {
                 std::cout << "[sensorMonitor] reading " << localTask->reading
                           << " out of range -- flagging and stopping\n";
-                self->raiseFault(); // flag only; stop is explicit policy
-                self->stop();
+                handle.raiseFault(); // flag only; stop is explicit policy
+                handle.stop();
                 break;
             }
             std::cout << "[sensorMonitor] reading " << localTask->reading
                       << " ok\n";
-            self->gotoCase(static_cast<::uslice::Task::case_t>(READ));
+            handle.gotoCase(READ);
             break;
     }
 }

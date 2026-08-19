@@ -25,12 +25,82 @@ enum class LedBlinkerCase : std::uint8_t {
     BLINK,
     DONE,
 };
+
+// Typed view over ::uslice::Task for the LedBlinker case enum; replaces
+// static_cast<LedBlinkerCase>(self->currentCase()) and
+// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with
+// type-checked calls, so a wrong-task case value cannot compile.
+class LedBlinkerHandle {
+    ::uslice::Task* task_;
+
+public:
+    constexpr explicit LedBlinkerHandle(::uslice::Task* task) noexcept
+        : task_(task) {}
+
+    [[nodiscard]] constexpr LedBlinkerCase currentCase() const noexcept {
+        return static_cast<LedBlinkerCase>(task_->currentCase());
+    }
+    constexpr void gotoCase(LedBlinkerCase value) const noexcept {
+        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));
+    }
+    constexpr void stop() const noexcept { task_->stop(); }
+    constexpr bool start() const noexcept { return task_->start(); }
+    constexpr void raiseFault() const noexcept { task_->raiseFault(); }
+    [[nodiscard]] constexpr bool isFaulted() const noexcept {
+        return task_->isFaulted();
+    }
+    [[nodiscard]] constexpr bool isRunning() const noexcept {
+        return task_->isRunning();
+    }
+    [[nodiscard]] constexpr bool isStopped() const noexcept {
+        return task_->isStopped();
+    }
+    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {
+        return task_->state();
+    }
+};
+
 LedBlinkerContext& ledBlinkerContext() noexcept;
 ::uslice::Task& ledBlinker() noexcept;
 
 enum class MotorCase : std::uint8_t {
     RUN,
 };
+
+// Typed view over ::uslice::Task for the Motor case enum; replaces
+// static_cast<MotorCase>(self->currentCase()) and
+// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with
+// type-checked calls, so a wrong-task case value cannot compile.
+class MotorHandle {
+    ::uslice::Task* task_;
+
+public:
+    constexpr explicit MotorHandle(::uslice::Task* task) noexcept
+        : task_(task) {}
+
+    [[nodiscard]] constexpr MotorCase currentCase() const noexcept {
+        return static_cast<MotorCase>(task_->currentCase());
+    }
+    constexpr void gotoCase(MotorCase value) const noexcept {
+        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));
+    }
+    constexpr void stop() const noexcept { task_->stop(); }
+    constexpr bool start() const noexcept { return task_->start(); }
+    constexpr void raiseFault() const noexcept { task_->raiseFault(); }
+    [[nodiscard]] constexpr bool isFaulted() const noexcept {
+        return task_->isFaulted();
+    }
+    [[nodiscard]] constexpr bool isRunning() const noexcept {
+        return task_->isRunning();
+    }
+    [[nodiscard]] constexpr bool isStopped() const noexcept {
+        return task_->isStopped();
+    }
+    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {
+        return task_->state();
+    }
+};
+
 MotorContext& motorContext() noexcept;
 ::uslice::Task& motor() noexcept;
 
@@ -38,6 +108,41 @@ enum class SensorMonitorCase : std::uint8_t {
     READ,
     CHECK,
 };
+
+// Typed view over ::uslice::Task for the SensorMonitor case enum; replaces
+// static_cast<SensorMonitorCase>(self->currentCase()) and
+// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with
+// type-checked calls, so a wrong-task case value cannot compile.
+class SensorMonitorHandle {
+    ::uslice::Task* task_;
+
+public:
+    constexpr explicit SensorMonitorHandle(::uslice::Task* task) noexcept
+        : task_(task) {}
+
+    [[nodiscard]] constexpr SensorMonitorCase currentCase() const noexcept {
+        return static_cast<SensorMonitorCase>(task_->currentCase());
+    }
+    constexpr void gotoCase(SensorMonitorCase value) const noexcept {
+        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));
+    }
+    constexpr void stop() const noexcept { task_->stop(); }
+    constexpr bool start() const noexcept { return task_->start(); }
+    constexpr void raiseFault() const noexcept { task_->raiseFault(); }
+    [[nodiscard]] constexpr bool isFaulted() const noexcept {
+        return task_->isFaulted();
+    }
+    [[nodiscard]] constexpr bool isRunning() const noexcept {
+        return task_->isRunning();
+    }
+    [[nodiscard]] constexpr bool isStopped() const noexcept {
+        return task_->isStopped();
+    }
+    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {
+        return task_->state();
+    }
+};
+
 SensorMonitorContext& sensorMonitorContext() noexcept;
 ::uslice::Task& sensorMonitor() noexcept;
 
@@ -45,6 +150,41 @@ enum class LogicCase : std::uint8_t {
     INIT,
     MONITOR,
 };
+
+// Typed view over ::uslice::Task for the Logic case enum; replaces
+// static_cast<LogicCase>(self->currentCase()) and
+// self->gotoCase(static_cast<::uslice::Task::case_t>(...)) with
+// type-checked calls, so a wrong-task case value cannot compile.
+class LogicHandle {
+    ::uslice::Task* task_;
+
+public:
+    constexpr explicit LogicHandle(::uslice::Task* task) noexcept
+        : task_(task) {}
+
+    [[nodiscard]] constexpr LogicCase currentCase() const noexcept {
+        return static_cast<LogicCase>(task_->currentCase());
+    }
+    constexpr void gotoCase(LogicCase value) const noexcept {
+        task_->gotoCase(static_cast<::uslice::Task::case_t>(value));
+    }
+    constexpr void stop() const noexcept { task_->stop(); }
+    constexpr bool start() const noexcept { return task_->start(); }
+    constexpr void raiseFault() const noexcept { task_->raiseFault(); }
+    [[nodiscard]] constexpr bool isFaulted() const noexcept {
+        return task_->isFaulted();
+    }
+    [[nodiscard]] constexpr bool isRunning() const noexcept {
+        return task_->isRunning();
+    }
+    [[nodiscard]] constexpr bool isStopped() const noexcept {
+        return task_->isStopped();
+    }
+    [[nodiscard]] constexpr ::uslice::TaskState state() const noexcept {
+        return task_->state();
+    }
+};
+
 LogicContext& logicContext() noexcept;
 ::uslice::Task& logic() noexcept;
 

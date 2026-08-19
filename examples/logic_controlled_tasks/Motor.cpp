@@ -14,8 +14,9 @@
 
 void Loop_motor(void* rawCtx_, ::uslice::Task* self) {
     auto* localTask = static_cast<MotorContext*>(rawCtx_);
+    const example::tasks::MotorHandle handle{self};
     using enum example::tasks::MotorCase;
-    switch (static_cast<example::tasks::MotorCase>(self->currentCase())) {
+    switch (handle.currentCase()) {
         case RUN:
             localTask->actualSpeed = localTask->targetSpeed;
             std::cout << "[motor] running at speed=" << localTask->actualSpeed

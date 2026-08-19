@@ -12,13 +12,14 @@
 #include <iostream>
 
 void Loop_logic([[maybe_unused]] void* rawCtx_, ::uslice::Task* self) {
+    const example::tasks::LogicHandle handle{self};
     using enum example::tasks::LogicCase;
-    switch (static_cast<example::tasks::LogicCase>(self->currentCase())) {
+    switch (handle.currentCase()) {
         case INIT:
             std::cout << "[logic] configuring motor and starting it\n";
             example::tasks::motorContext().targetSpeed = 42;
             example::tasks::motor().start();
-            self->gotoCase(static_cast<::uslice::Task::case_t>(MONITOR));
+            handle.gotoCase(MONITOR);
             break;
         case MONITOR:
             if (example::tasks::sensorMonitor().isFaulted()) {
